@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ExJoi · Conditional Rules</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="bg-slate-950 text-slate-100 antialiased">
+    <div id="common-header"></div>
+    <div class="flex min-h-screen pt-16">
+      <div id="common-sidebar"></div>
+
+      <main class="flex-1 px-6 py-10 lg:px-16 space-y-12 pb-16">
+        <section class="docs-section">
+          <p class="hero-badge">Guide</p>
+          <h1 class="section-title text-4xl">Conditional Validation with <code>ExJoi.when/3</code></h1>
+          <p class="text-slate-300 leading-relaxed">
+            Conditional rules let you branch validation logic based on other fields, value ranges, or regex patterns. This is how you build role-based permissions, dynamic forms, and context-aware pipelines without resorting to custom code.
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">API Reference</p>
+            <h2 class="section-title"><code>ExJoi.when/3</code> - Complete Reference</h2>
+            <p class="text-slate-400 mt-2">Detailed documentation for the conditional validation function.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Function Signature</h3>
+            <div class="code-card mt-4">
+              <pre><code>ExJoi.when(other_field, condition_opts, default_rule \\ nil)</code></pre>
+            </div>
+          </div>
+
+          <div class="space-y-6 mt-6">
+            <div>
+              <h3 class="text-xl font-semibold text-white mb-3">Parameters</h3>
+              <div class="space-y-4">
+                <div class="feature-card">
+                  <h4><code>other_field</code> (atom, required)</h4>
+                  <p class="text-slate-400">The field name (as an atom) to check against. This field must be defined earlier in the schema map.</p>
+                  <div class="code-card mt-2">
+                    <pre><code># ✅ Correct: age is defined before guardian_name
+schema = ExJoi.schema(%{
+  age: ExJoi.number(required: true),
+  guardian_name: ExJoi.when(:age, max: 17, then: ExJoi.string(required: true))
+})
+
+# ❌ Wrong: guardian_name references age before it's defined
+schema = ExJoi.schema(%{
+  guardian_name: ExJoi.when(:age, max: 17, then: ExJoi.string(required: true)),
+  age: ExJoi.number(required: true)
+})</code></pre>
+                  </div>
+                </div>
+
+                <div class="feature-card">
+                  <h4><code>condition_opts</code> (keyword list, required)</h4>
+                  <p class="text-slate-400">A keyword list containing the condition to check and the rules to apply.</p>
+                  
+                  <div class="mt-4 space-y-3">
+                    <div>
+                      <p class="text-sm font-semibold text-sky-400 mb-2">Required Options</p>
+                      <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                        <li><code>:then</code> (<code>%ExJoi.Rule{}</code>, required) - Rule applied when condition matches</li>
+                      </ul>
+                    </div>
+
+                    <div>
+                      <p class="text-sm font-semibold text-sky-400 mb-2">Condition Options (at least one required)</p>
+                      <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                        <li><code>:is</code> (any) - Exact match against the other field's value</li>
+                        <li><code>:in</code> (list) - Match when the other field's value is in the provided list</li>
+                        <li><code>:matches</code> (Regex) - Match when the other field (string) satisfies the regex pattern</li>
+                        <li><code>:min</code> (number) - Match when the other field (number) is greater than or equal to this value</li>
+                        <li><code>:max</code> (number) - Match when the other field (number) is less than or equal to this value</li>
+                      </ul>
+                    </div>
+
+                    <div>
+                      <p class="text-sm font-semibold text-sky-400 mb-2">Optional Options</p>
+                      <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                        <li><code>:otherwise</code> (<code>%ExJoi.Rule{}</code>) - Rule applied when condition does not match</li>
+                        <li><code>:required</code> (boolean, default: <code>false</code>) - Whether the field itself is required regardless of conditions</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="feature-card">
+                  <h4><code>default_rule</code> (<code>%ExJoi.Rule{}</code>, optional)</h4>
+                  <p class="text-slate-400">A base rule used when no <code>:otherwise</code> is provided in <code>condition_opts</code>. This provides a fallback when the condition doesn't match.</p>
+                  <div class="code-card mt-2">
+                    <pre><code># Using default_rule parameter
+permissions: ExJoi.when(
+  :role,
+  [is: "admin", then: ExJoi.array(of: ExJoi.string(), min_items: 1, required: true)],
+  ExJoi.array(of: ExJoi.string())  # default_rule
+)
+
+# Equivalent using :otherwise
+permissions: ExJoi.when(
+  :role,
+  [
+    is: "admin",
+    then: ExJoi.array(of: ExJoi.string(), min_items: 1, required: true),
+    otherwise: ExJoi.array(of: ExJoi.string())
+  ]
+)</code></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="text-xl font-semibold text-white mb-3">Returns</h3>
+              <p class="text-slate-400 mb-4"><code>%ExJoi.Rule{type: :conditional, conditional: %{...}}</code></p>
+              <p class="text-slate-400">A rule struct with type <code>:conditional</code> containing the condition logic and branch rules.</p>
+            </div>
+
+            <div>
+              <h3 class="text-xl font-semibold text-white mb-3">Condition Types Explained</h3>
+              
+              <div class="space-y-4">
+                <div class="feature-card">
+                  <h4><code>:is</code> - Exact Match</h4>
+                  <p class="text-slate-400">Matches when the other field equals the given value exactly (uses <code>==</code> comparison).</p>
+                  <div class="code-card mt-2">
+                    <pre><code>permissions: ExJoi.when(
+  :role,
+  is: "admin",
+  then: ExJoi.array(of: ExJoi.string(), min_items: 1, required: true)
+)
+
+# Matches when role == "admin"</code></pre>
+                  </div>
+                </div>
+
+                <div class="feature-card">
+                  <h4><code>:in</code> - List Membership</h4>
+                  <p class="text-slate-400">Matches when the other field's value is present in the provided list.</p>
+                  <div class="code-card mt-2">
+                    <pre><code>billing_email: ExJoi.when(
+  :plan,
+  in: ["pro", "enterprise"],
+  then: ExJoi.string(required: true, email: true)
+)
+
+# Matches when plan is "pro" OR "enterprise"</code></pre>
+                  </div>
+                </div>
+
+                <div class="feature-card">
+                  <h4><code>:matches</code> - Regex Pattern</h4>
+                  <p class="text-slate-400">Matches when the other field (must be a string) satisfies the provided regex pattern.</p>
+                  <div class="code-card mt-2">
+                    <pre><code>pro_feature: ExJoi.when(
+  :plan,
+  matches: ~r/^pro/i,
+  then: ExJoi.boolean(required: true)
+)
+
+# Matches when plan matches /^pro/i (case-insensitive)</code></pre>
+                  </div>
+                </div>
+
+                <div class="feature-card">
+                  <h4><code>:min</code> / <code>:max</code> - Numeric Range</h4>
+                  <p class="text-slate-400">Matches when the other field (must be a number) falls within the inclusive range.</p>
+                  <div class="code-card mt-2">
+                    <pre><code>guardian_name: ExJoi.when(
+  :age,
+  max: 17,
+  then: ExJoi.string(required: true, min: 2)
+)
+
+# Matches when age <= 17
+
+discount: ExJoi.when(
+  :quantity,
+  min: 10,
+  then: ExJoi.number(min: 0.1, max: 0.5)
+)
+
+# Matches when quantity >= 10</code></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="text-xl font-semibold text-white mb-3">Multiple Conditions</h3>
+              <p class="text-slate-400 mb-4">You can provide multiple conditions in the same <code>condition_opts</code>. All conditions must pass for the <code>:then</code> branch to apply.</p>
+              <div class="code-card">
+                <pre><code># Both :is and :min must be true
+permissions: ExJoi.when(
+  :role,
+  [
+    is: "admin",
+    min: 1,  # role must be numeric and >= 1 (unlikely, but shows the concept)
+    then: ExJoi.array(of: ExJoi.string(), min_items: 1, required: true)
+  ]
+)
+
+# Note: Multiple conditions are ANDed together</code></pre>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="text-xl font-semibold text-white mb-3">Error Handling</h3>
+              <div class="feature-card space-y-3">
+                <div>
+                  <h4>Missing Condition</h4>
+                  <p class="text-slate-400">If no condition option is provided, an <code>ArgumentError</code> is raised:</p>
+                  <div class="code-card mt-2">
+                    <pre><code># ❌ This will raise ArgumentError
+ExJoi.when(:role, [then: ExJoi.string()])
+# => ** (ArgumentError) ExJoi.when/3 requires at least one condition</code></pre>
+                  </div>
+                </div>
+
+                <div>
+                  <h4>Missing :then</h4>
+                  <p class="text-slate-400">If <code>:then</code> is not provided, a <code>KeyError</code> is raised:</p>
+                  <div class="code-card mt-2">
+                    <pre><code># ❌ This will raise KeyError
+ExJoi.when(:role, [is: "admin"])
+# => ** (KeyError) key :then not found</code></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Condition options</p>
+            <h2 class="section-title">Everything you can check</h2>
+          </div>
+          <div class="overflow-hidden rounded-3xl border border-slate-800">
+            <table class="table-luxe">
+              <thead>
+                <tr>
+                  <th>Option</th>
+                  <th>Description</th>
+                  <th>Example</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>:is</code></td>
+                  <td>Exact match against the other field.</td>
+                  <td><code>is: "admin"</code></td>
+                </tr>
+                <tr>
+                  <td><code>:in</code></td>
+                  <td>Any match within a list or range.</td>
+                  <td><code>in: ["editor", "publisher"]</code></td>
+                </tr>
+                <tr>
+                  <td><code>:matches</code></td>
+                  <td>Regex pattern applied to strings.</td>
+                  <td><code>matches: ~r/^pro/i</code></td>
+                </tr>
+                <tr>
+                  <td><code>:min</code> / <code>:max</code></td>
+                  <td>Numeric comparisons on the other field.</td>
+                  <td><code>max: 17</code> (guardian required if under 18)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Branching</p>
+            <h2 class="section-title">Combining <code>:then</code> / <code>:otherwise</code></h2>
+          </div>
+          <div class="code-card">
+            <div class="code-header">
+              <span>Role-based rules</span>
+              <button class="copy-btn" data-clipboard-target="#cr-role">Copy</button>
+            </div>
+            <pre><code id="cr-role">permissions:
+  ExJoi.when(
+    :role,
+    [
+      is: "admin",
+      then: ExJoi.array(of: ExJoi.string(min: 3), min_items: 1, required: true),
+      otherwise: ExJoi.array(of: ExJoi.string())
+    ]
+  )</code></pre>
+          </div>
+          <p class="text-slate-400">
+            If you omit <code>:otherwise</code>, ExJoi falls back to the optional third argument you pass into <code>when/3</code> (handy for base rules).
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Advanced scenario</p>
+            <h2 class="section-title">Multiple conditions + nested objects</h2>
+          </div>
+          <div class="code-card">
+            <div class="code-header">
+              <span>Complex example</span>
+              <button class="copy-btn" data-clipboard-target="#cr-complex">Copy</button>
+            </div>
+            <pre><code id="cr-complex">schema =
+  ExJoi.schema(%{
+    plan: ExJoi.string(required: true),
+    usage: ExJoi.number(required: true, min: 0),
+    billing:
+      ExJoi.when(
+        :plan,
+        [
+          matches: ~r/^pro/i,
+          then:
+            ExJoi.object(%{
+              invoice_email: ExJoi.string(required: true, email: true),
+              net_terms: ExJoi.number(min: 0, max: 30)
+            }),
+          otherwise:
+            ExJoi.object(%{
+              card_last4: ExJoi.string(required: true, min: 4, max: 4)
+            })
+        ]
+      ),
+    guardian_contact:
+      ExJoi.when(:usage, max: 99, then: ExJoi.string())
+  })</code></pre>
+          </div>
+          <p class="text-slate-400">
+            Conditions run sequentially, so you can nest <code>ExJoi.when/3</code> inside arrays, objects, or even other conditional branches. Keep them readable by extracting helper functions once they get large.
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Real-world examples</p>
+            <h2 class="section-title">Common conditional patterns</h2>
+            <p class="text-slate-400 mt-2">See how conditional rules solve real validation challenges.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="code-card">
+              <div class="code-header">
+                <span>Age-based validation</span>
+                <button class="copy-btn" data-clipboard-target="#cr-age">Copy</button>
+              </div>
+              <pre><code id="cr-age">schema = ExJoi.schema(%{
+  age: ExJoi.number(required: true, min: 0, max: 120, integer: true),
+  guardian_name: ExJoi.when(
+    :age,
+    max: 17,
+    then: ExJoi.string(required: true, min: 2, max: 100),
+    otherwise: ExJoi.string()
+  ),
+  guardian_email: ExJoi.when(
+    :age,
+    max: 17,
+    then: ExJoi.string(required: true, email: true),
+    otherwise: ExJoi.string(email: true)
+  )
+})
+
+# Under 18: guardian required
+ExJoi.validate(%{"age" => 16}, schema)
+# {:error, %{errors_flat: %{"guardian_name" => ["is required"], "guardian_email" => ["is required"]}}}
+
+# 18 or older: guardian optional
+ExJoi.validate(%{"age" => 18}, schema)
+# {:ok, %{"age" => 18}}</code></pre>
+            </div>
+
+            <div class="code-card">
+              <div class="code-header">
+                <span>Subscription tiers</span>
+                <button class="copy-btn" data-clipboard-target="#cr-subscription">Copy</button>
+              </div>
+              <pre><code id="cr-subscription">schema = ExJoi.schema(%{
+  plan: ExJoi.string(required: true, in: ["free", "pro", "enterprise"]),
+  billing_email: ExJoi.when(
+    :plan,
+    in: ["pro", "enterprise"],
+    then: ExJoi.string(required: true, email: true),
+    otherwise: ExJoi.string(email: true)
+  ),
+  payment_method: ExJoi.when(
+    :plan,
+    is: "enterprise",
+    then: ExJoi.object(%{
+      type: ExJoi.string(required: true, in: ["invoice", "ach", "wire"]),
+      net_terms: ExJoi.number(min: 0, max: 90, integer: true)
+    }, required: true),
+    otherwise: ExJoi.object(%{
+      type: ExJoi.string(required: true, in: ["card", "paypal"]),
+      card_last4: ExJoi.string(required: true, min: 4, max: 4)
+    })
+  ),
+  team_size: ExJoi.when(
+    :plan,
+    matches: ~r/^(pro|enterprise)$/,
+    then: ExJoi.number(required: true, min: 1, integer: true),
+    otherwise: ExJoi.number(min: 1, integer: true)
+  )
+})</code></pre>
+            </div>
+
+            <div class="code-card">
+              <div class="code-header">
+                <span>Multi-field conditions</span>
+                <button class="copy-btn" data-clipboard-target="#cr-multi">Copy</button>
+              </div>
+              <pre><code id="cr-multi">schema = ExJoi.schema(%{
+  account_type: ExJoi.string(required: true, in: ["personal", "business"]),
+  business_name: ExJoi.when(
+    :account_type,
+    is: "business",
+    then: ExJoi.string(required: true, min: 2, max: 100),
+    otherwise: ExJoi.string()
+  ),
+  tax_id: ExJoi.when(
+    :account_type,
+    is: "business",
+    then: ExJoi.string(required: true, pattern: ~r/^\d{2}-\d{7}$/),
+    otherwise: ExJoi.string()
+  ),
+  personal_id: ExJoi.when(
+    :account_type,
+    is: "personal",
+    then: ExJoi.string(required: true, min: 5, max: 20),
+    otherwise: ExJoi.string()
+  )
+})</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Nested conditionals</p>
+            <h2 class="section-title">Complex branching logic</h2>
+            <p class="text-slate-400 mt-2">You can nest conditionals inside objects, arrays, and even other conditionals.</p>
+          </div>
+
+          <div class="code-card">
+            <div class="code-header">
+              <span>Nested example</span>
+              <button class="copy-btn" data-clipboard-target="#cr-nested">Copy</button>
+            </div>
+            <pre><code id="cr-nested">schema = ExJoi.schema(%{
+  user_type: ExJoi.string(required: true, in: ["student", "teacher", "admin"]),
+  profile: ExJoi.object(%{
+    name: ExJoi.string(required: true, min: 2),
+    email: ExJoi.string(required: true, email: true),
+    school_info: ExJoi.when(
+      :user_type,
+      in: ["student", "teacher"],
+      then: ExJoi.object(%{
+        school_name: ExJoi.string(required: true),
+        grade_level: ExJoi.when(
+          :user_type,
+          is: "student",
+          then: ExJoi.number(required: true, min: 1, max: 12, integer: true),
+          otherwise: ExJoi.number(min: 1, max: 12, integer: true)
+        ),
+        subjects: ExJoi.when(
+          :user_type,
+          is: "teacher",
+          then: ExJoi.array(
+            of: ExJoi.string(min: 2),
+            min_items: 1,
+            required: true
+          ),
+          otherwise: ExJoi.array(of: ExJoi.string(min: 2))
+        )
+      }, required: true),
+      otherwise: ExJoi.object(%{
+        organization: ExJoi.string(required: true),
+        department: ExJoi.string(required: true)
+      }, required: true)
+    )
+  })
+})</code></pre>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Condition evaluation order</p>
+            <h2 class="section-title">How conditions are checked</h2>
+            <p class="text-slate-400 mt-2">Understanding evaluation order helps you write predictable conditional rules.</p>
+          </div>
+
+          <div class="feature-card space-y-4">
+            <div>
+              <h3>1. Field value is resolved first</h3>
+              <p class="text-slate-400">The field referenced in <code>when/3</code> must be validated before the conditional rule. ExJoi validates fields in the order they appear in the schema map.</p>
+              <div class="code-card mt-2">
+                <pre><code># ✅ Good: age is defined before guardian_name
+schema = ExJoi.schema(%{
+  age: ExJoi.number(required: true),
+  guardian_name: ExJoi.when(:age, max: 17, then: ExJoi.string(required: true))
+})
+
+# ⚠️ Problem: guardian_name references age before it's validated
+schema = ExJoi.schema(%{
+  guardian_name: ExJoi.when(:age, max: 17, then: ExJoi.string(required: true)),
+  age: ExJoi.number(required: true)
+})</code></pre>
+              </div>
+            </div>
+
+            <div>
+              <h3>2. Conditions are evaluated in order</h3>
+              <p class="text-slate-400">When multiple conditions are provided (like <code>is</code> and <code>min</code>), they're all checked. All must pass for the <code>:then</code> branch to apply.</p>
+              <div class="code-card mt-2">
+                <pre><code># Both conditions must be true
+permissions: ExJoi.when(
+  :role,
+  [is: "admin", min: 1],  # role must be "admin" AND >= 1 (if numeric)
+  then: ExJoi.array(of: ExJoi.string(), min_items: 1, required: true)
+)</code></pre>
+              </div>
+            </div>
+
+            <div>
+              <h3>3. First matching condition wins</h3>
+              <p class="text-slate-400">If you have multiple <code>when/3</code> rules for the same field, they're evaluated in schema order. The first match applies.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Best practices</p>
+            <h2 class="section-title">Writing maintainable conditionals</h2>
+          </div>
+
+          <div class="space-y-4">
+            <div class="feature-card">
+              <h3>1. Extract complex conditionals to functions</h3>
+              <p class="text-slate-400">When conditionals get long, extract them to helper functions for readability.</p>
+              <div class="code-card mt-2">
+                <pre><code>defmodule MyApp.Schemas.User do
+  defp admin_permissions_rule do
+    ExJoi.array(
+      of: ExJoi.string(min: 3),
+      min_items: 1,
+      required: true
+    )
+  end
+
+  defp regular_permissions_rule do
+    ExJoi.array(of: ExJoi.string(min: 3))
+  end
+
+  def schema do
+    ExJoi.schema(%{
+      role: ExJoi.string(required: true),
+      permissions: ExJoi.when(
+        :role,
+        is: "admin",
+        then: admin_permissions_rule(),
+        otherwise: regular_permissions_rule()
+      )
+    })
+  end
+end</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>2. Use descriptive field names</h3>
+              <p class="text-slate-400">Clear field names make conditionals self-documenting.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>3. Test all branches</h3>
+              <p class="text-slate-400">Write tests for each conditional branch to ensure they work as expected.</p>
+              <div class="code-card mt-2">
+                <pre><code>test "requires guardian for minors" do
+  params = %{"age" => 16}
+  assert {:error, %{errors_flat: errors}} = ExJoi.validate(params, schema)
+  assert Map.has_key?(errors, "guardian_name")
+end
+
+test "makes guardian optional for adults" do
+  params = %{"age" => 18}
+  assert {:ok, _} = ExJoi.validate(params, schema)
+end</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>4. Avoid deeply nested conditionals</h3>
+              <p class="text-slate-400">If you find yourself nesting 3+ levels deep, consider splitting into multiple schemas or using custom validators.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Troubleshooting</p>
+            <h2 class="section-title">Common issues and solutions</h2>
+          </div>
+
+          <div class="feature-card space-y-4">
+            <div>
+              <h3>Conditional not triggering</h3>
+              <p class="text-slate-400"><strong>Problem:</strong> The <code>:then</code> branch never applies even when the condition should match.</p>
+              <p class="text-slate-400"><strong>Solution:</strong> Check that the referenced field is validated before the conditional rule. Also verify the condition values match exactly (case-sensitive for strings).</p>
+            </div>
+
+            <div>
+              <h3>Wrong branch executing</h3>
+              <p class="text-slate-400"><strong>Problem:</strong> The <code>:otherwise</code> branch runs when you expect <code>:then</code>.</p>
+              <p class="text-slate-400"><strong>Solution:</strong> Verify the condition type matches. For example, <code>is: "admin"</code> won't match if the field value is an atom <code>:admin</code>.</p>
+            </div>
+
+            <div>
+              <h3>Required field in wrong branch</h3>
+              <p class="text-slate-400"><strong>Problem:</strong> A field is required when it shouldn't be, or optional when it should be required.</p>
+              <p class="text-slate-400"><strong>Solution:</strong> Make sure <code>required: true</code> is only in the <code>:then</code> branch where you want it required, not in <code>:otherwise</code>.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="common-footer"></div>
+
+    <script src="common.js"></script>
+    <script src="scripts.js"></script>
+  </body>
+</html>
+

@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ExJoi · Convert Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="bg-slate-950 text-slate-100 antialiased">
+    <div id="common-header"></div>
+    <div class="flex min-h-screen pt-16">
+      <div id="common-sidebar"></div>
+
+      <main class="flex-1 px-6 py-10 lg:px-16 space-y-12 pb-16">
+        <section class="docs-section">
+          <p class="hero-badge">Guide</p>
+          <h1 class="section-title text-4xl">Convert Mode &amp; Casting Strategies</h1>
+          <p class="text-slate-300 leading-relaxed">
+            ExJoi runs in strict mode by default. Activate <code>convert: true</code> per validation to coerce inbound strings, booleans, arrays, and ISO dates, mirroring Joi's "convert" behavior.
+            This guide explains what actually changes, how to stay safe, and how to mix convert mode with defaults and custom validators.
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">API Reference</p>
+            <h2 class="section-title"><code>ExJoi.validate/3</code> - Convert Mode</h2>
+            <p class="text-slate-400 mt-2">Complete reference for type coercion and conversion behavior.</p>
+          </div>
+
+          <div class="feature-card">
+            <h3>Function Signature</h3>
+            <div class="code-card mt-4">
+              <pre><code>ExJoi.validate(data, schema, opts \\ [])</code></pre>
+            </div>
+          </div>
+
+          <div class="space-y-6 mt-6">
+            <div>
+              <h3 class="text-xl font-semibold text-white mb-3">Parameters</h3>
+              <div class="space-y-4">
+                <div class="feature-card">
+                  <h4><code>data</code> (map, required)</h4>
+                  <p class="text-slate-400">The data to validate. When <code>convert: true</code> is enabled, string values will be coerced to appropriate types.</p>
+                </div>
+
+                <div class="feature-card">
+                  <h4><code>schema</code> (<code>%ExJoi.Schema{}</code>, required)</h4>
+                  <p class="text-slate-400">The validation schema. Convert mode applies to all fields in the schema.</p>
+                </div>
+
+                <div class="feature-card">
+                  <h4><code>opts</code> (keyword list, optional)</h4>
+                  <p class="text-slate-400">Validation options. The key option for convert mode is <code>:convert</code>.</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="text-xl font-semibold text-white mb-3">Options</h3>
+              <div class="feature-card">
+                <h4><code>:convert</code> (boolean, default: <code>false</code>)</h4>
+                <p class="text-slate-400 mb-4">When <code>true</code>, enables automatic type coercion for the following conversions:</p>
+                
+                <div class="space-y-3">
+                  <div>
+                    <p class="text-sm font-semibold text-sky-400 mb-2">String → Number</p>
+                    <p class="text-slate-400 text-sm">Numeric strings are parsed to integers or floats (e.g., <code>"42"</code> → <code>42</code>, <code>"3.14"</code> → <code>3.14</code>).</p>
+                  </div>
+
+                  <div>
+                    <p class="text-sm font-semibold text-sky-400 mb-2">String → Boolean</p>
+                    <p class="text-slate-400 text-sm">Boolean-like strings are coerced using truthy/falsy lists (e.g., <code>"true"</code> → <code>true</code>, <code>"false"</code> → <code>false</code>).</p>
+                  </div>
+
+                  <div>
+                    <p class="text-sm font-semibold text-sky-400 mb-2">String → Date</p>
+                    <p class="text-slate-400 text-sm">ISO8601 date strings are parsed to <code>DateTime</code> structs (e.g., <code>"2024-01-15T10:30:00Z"</code> → <code>%DateTime{...}</code>).</p>
+                  </div>
+
+                  <div>
+                    <p class="text-sm font-semibold text-sky-400 mb-2">String → Array</p>
+                    <p class="text-slate-400 text-sm">Delimited strings are split into lists using the rule's <code>:delimiter</code> option (default: <code>","</code>).</p>
+                  </div>
+
+                  <div>
+                    <p class="text-sm font-semibold text-sky-400 mb-2">String Normalization</p>
+                    <p class="text-slate-400 text-sm">Strings are trimmed and whitespace is normalized (multiple spaces collapsed to single spaces).</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="text-xl font-semibold text-white mb-3">Returns</h3>
+              <div class="feature-card">
+                <p class="text-slate-400 mb-2">Returns the same structure as normal validation:</p>
+                <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                  <li><code>{:ok, coerced_data}</code> - Success tuple with validated and coerced data</li>
+                  <li><code>{:error, error_map}</code> - Error tuple with structured error information</li>
+                </ul>
+                <p class="text-slate-400 text-sm mt-3">The difference is that <code>coerced_data</code> contains converted types (numbers, booleans, dates, arrays) instead of the original string values.</p>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="text-xl font-semibold text-white mb-3">Examples</h3>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Basic Usage</span>
+                  <button class="copy-btn" data-clipboard-target="#api-convert-basic">Copy</button>
+                </div>
+                <pre><code id="api-convert-basic">schema = ExJoi.schema(%{
+  age: ExJoi.number(required: true),
+  active: ExJoi.boolean(),
+  tags: ExJoi.array(of: ExJoi.string())
+})
+
+# Without convert mode (strict)
+ExJoi.validate(%{"age" => "30", "active" => "true"}, schema)
+# => {:error, ...}  # Type mismatch errors
+
+# With convert mode
+ExJoi.validate(%{"age" => "30", "active" => "true"}, schema, convert: true)
+# => {:ok, %{"age" => 30, "active" => true, "tags" => nil}}</code></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Type matrix</p>
+            <h2 class="section-title">What gets coerced?</h2>
+          </div>
+          <div class="overflow-hidden rounded-3xl border border-slate-800">
+            <table class="table-luxe">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Example input</th>
+                  <th>Output (convert: true)</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Number</td>
+                  <td><code>"42"</code>, <code>"3.14"</code></td>
+                  <td><code>42</code>, <code>3.14</code></td>
+                  <td>Trims whitespace first; invalid strings raise type errors.</td>
+                </tr>
+                <tr>
+                  <td>Boolean</td>
+                  <td><code>"true"</code>, <code>"0"</code>, <code>"off"</code></td>
+                  <td><code>true</code>, <code>false</code></td>
+                  <td>Uses your <code>:truthy</code>/<code>:falsy</code> lists or ExJoi defaults.</td>
+                </tr>
+                <tr>
+                  <td>Date</td>
+                  <td><code>"2025-01-01T12:00:00Z"</code></td>
+                  <td><code>DateTime</code> in UTC</td>
+                  <td>Accepts full ISO8601; falls back to NaiveDateTime if needed.</td>
+                </tr>
+                <tr>
+                  <td>Array</td>
+                  <td><code>"ana,bea,clara"</code></td>
+                  <td><code>["ana","bea","clara"]</code></td>
+                  <td>Control splitting via <code>:delimiter</code> (default comma).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Enabling convert mode</p>
+            <h2 class="section-title">Per-request control</h2>
+          </div>
+          <div class="code-card">
+            <div class="code-header">
+              <span>Controller snippet</span>
+              <button class="copy-btn" data-clipboard-target="#cm-controller">Copy</button>
+            </div>
+            <pre><code id="cm-controller">def create(conn, params) do
+  convert? = conn.assigns[:accepts_loose_payloads?] || false
+
+  case ExJoi.validate(params, schema(), convert: convert?) do
+    {:ok, normalized} ->
+      Users.create(normalized)
+
+    {:error, %{errors_flat: flat}} ->
+      conn
+      |> put_status(:unprocessable_entity)
+      |> json(%{errors: flat})
+  end
+end</code></pre>
+          </div>
+          <p class="text-slate-400">
+            This pattern keeps strict validation as the default and elevates convert mode only when upstream systems send loosely typed payloads (REST clients, CSV imports, etc.).
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Detailed conversion rules</p>
+            <h2 class="section-title">How each type is converted</h2>
+            <p class="text-slate-400 mt-2">Understanding the exact behavior helps you write predictable schemas.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="feature-card">
+              <h3>String to Number</h3>
+              <div class="code-card mt-4">
+                <div class="code-header">
+                  <span>Examples</span>
+                  <button class="copy-btn" data-clipboard-target="#cm-number">Copy</button>
+                </div>
+                <pre><code id="cm-number"># Valid conversions
+ExJoi.validate(%{"age" => "42"}, schema, convert: true)
+# {:ok, %{"age" => 42}}
+
+ExJoi.validate(%{"price" => "99.99"}, schema, convert: true)
+# {:ok, %{"price" => 99.99}}
+
+# Invalid strings fail
+ExJoi.validate(%{"age" => "not-a-number"}, schema, convert: true)
+# {:error, %{errors_flat: %{"age" => ["must be a number"]}}}
+
+# Whitespace is trimmed first
+ExJoi.validate(%{"age" => "  42  "}, schema, convert: true)
+# {:ok, %{"age" => 42}}
+
+# Empty strings fail (not converted to 0)
+ExJoi.validate(%{"age" => ""}, schema, convert: true)
+# {:error, %{errors_flat: %{"age" => ["must be a number"]}}}</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>String to Boolean</h3>
+              <div class="code-card mt-4">
+                <div class="code-header">
+                  <span>Truthy/Falsy values</span>
+                  <button class="copy-btn" data-clipboard-target="#cm-boolean">Copy</button>
+                </div>
+                <pre><code id="cm-boolean"># Default truthy: ["true", "1", "yes", "on"]
+# Default falsy: ["false", "0", "no", "off", ""]
+
+schema = ExJoi.schema(%{
+  active: ExJoi.boolean(required: true)
+})
+
+# All convert to true
+ExJoi.validate(%{"active" => "true"}, schema, convert: true)
+ExJoi.validate(%{"active" => "1"}, schema, convert: true)
+ExJoi.validate(%{"active" => "yes"}, schema, convert: true)
+ExJoi.validate(%{"active" => "on"}, schema, convert: true)
+# {:ok, %{"active" => true}}
+
+# All convert to false
+ExJoi.validate(%{"active" => "false"}, schema, convert: true)
+ExJoi.validate(%{"active" => "0"}, schema, convert: true)
+ExJoi.validate(%{"active" => "no"}, schema, convert: true)
+ExJoi.validate(%{"active" => "off"}, schema, convert: true)
+ExJoi.validate(%{"active" => ""}, schema, convert: true)
+# {:ok, %{"active" => false}}
+
+# Custom truthy/falsy lists
+schema = ExJoi.schema(%{
+  enabled: ExJoi.boolean(
+    truthy: ["enabled", "active", "1"],
+    falsy: ["disabled", "inactive", "0"]
+  )
+})</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>String to Date</h3>
+              <div class="code-card mt-4">
+                <div class="code-header">
+                  <span>ISO8601 parsing</span>
+                  <button class="copy-btn" data-clipboard-target="#cm-date">Copy</button>
+                </div>
+                <pre><code id="cm-date">schema = ExJoi.schema(%{
+  created_at: ExJoi.date(required: true)
+})
+
+# Full ISO8601 with timezone
+ExJoi.validate(%{"created_at" => "2025-01-15T10:30:00Z"}, schema, convert: true)
+# {:ok, %{"created_at" => ~U[2025-01-15 10:30:00Z]}}
+
+# ISO8601 with offset
+ExJoi.validate(%{"created_at" => "2025-01-15T10:30:00+05:00"}, schema, convert: true)
+# {:ok, %{"created_at" => ~U[2025-01-15 05:30:00Z]}}
+
+# Date only (becomes NaiveDateTime at midnight)
+ExJoi.validate(%{"created_at" => "2025-01-15"}, schema, convert: true)
+# {:ok, %{"created_at" => ~N[2025-01-15 00:00:00]}}
+
+# Invalid formats fail
+ExJoi.validate(%{"created_at" => "January 15, 2025"}, schema, convert: true)
+# {:error, %{errors_flat: %{"created_at" => ["must be ISO8601"]}}}</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>String to Array</h3>
+              <div class="code-card mt-4">
+                <div class="code-header">
+                  <span>Delimiter-based splitting</span>
+                  <button class="copy-btn" data-clipboard-target="#cm-array">Copy</button>
+                </div>
+                <pre><code id="cm-array"># Default delimiter is comma
+schema = ExJoi.schema(%{
+  tags: ExJoi.array(of: ExJoi.string(min: 2))
+})
+
+ExJoi.validate(%{"tags" => "elixir,phoenix,ecto"}, schema, convert: true)
+# {:ok, %{"tags" => ["elixir", "phoenix", "ecto"]}}
+
+# Whitespace is trimmed from each item
+ExJoi.validate(%{"tags" => " elixir , phoenix , ecto "}, schema, convert: true)
+# {:ok, %{"tags" => ["elixir", "phoenix", "ecto"]}}
+
+# Empty strings become empty arrays
+ExJoi.validate(%{"tags" => ""}, schema, convert: true)
+# {:ok, %{"tags" => []}}
+
+# Custom delimiter
+schema = ExJoi.schema(%{
+  permissions: ExJoi.array(
+    of: ExJoi.string(min: 3),
+    delimiter: ";"
+  )
+})
+
+ExJoi.validate(%{"permissions" => "read;write;admin"}, schema, convert: true)
+# {:ok, %{"permissions" => ["read", "write", "admin"]}}
+
+# Pipe delimiter
+schema = ExJoi.schema(%{
+  categories: ExJoi.array(
+    of: ExJoi.string(),
+    delimiter: "|"
+  )
+})
+
+ExJoi.validate(%{"categories" => "tech|business|design"}, schema, convert: true)
+# {:ok, %{"categories" => ["tech", "business", "design"]}}</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>String Normalization</h3>
+              <div class="code-card mt-4">
+                <div class="code-header">
+                  <span>Whitespace handling</span>
+                  <button class="copy-btn" data-clipboard-target="#cm-string">Copy</button>
+                </div>
+                <pre><code id="cm-string"># In convert mode, strings are trimmed and normalized
+schema = ExJoi.schema(%{
+  name: ExJoi.string(required: true, min: 2)
+})
+
+# Leading/trailing whitespace is trimmed
+ExJoi.validate(%{"name" => "  John  "}, schema, convert: true)
+# {:ok, %{"name" => "John"}}
+
+# Multiple spaces are collapsed to single space
+ExJoi.validate(%{"name" => "John    Doe"}, schema, convert: true)
+# {:ok, %{"name" => "John Doe"}}
+
+# Newlines and tabs are normalized
+ExJoi.validate(%{"name" => "John\n\tDoe"}, schema, convert: true)
+# {:ok, %{"name" => "John Doe"}
+
+# Empty strings after trimming still fail if required
+ExJoi.validate(%{"name" => "   "}, schema, convert: true)
+# {:error, %{errors_flat: %{"name" => ["is required"]}}}</code></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">When to use convert mode</p>
+            <h2 class="section-title">Best practices and use cases</h2>
+          </div>
+
+          <div class="space-y-4">
+            <div class="feature-card">
+              <h3>✅ Use convert mode for:</h3>
+              <ul class="list-disc pl-6 text-slate-400 space-y-2 mt-2">
+                <li><strong>Form submissions:</strong> HTML forms send everything as strings. Convert mode handles this gracefully.</li>
+                <li><strong>CSV imports:</strong> CSV files are string-based. Convert mode makes importing numeric and boolean data seamless.</li>
+                <li><strong>External APIs:</strong> Many REST APIs send loosely typed JSON. Convert mode normalizes the data.</li>
+                <li><strong>Query parameters:</strong> URL query strings are always strings. Convert mode handles pagination, filters, etc.</li>
+                <li><strong>Webhook payloads:</strong> Third-party webhooks often send string numbers and booleans.</li>
+              </ul>
+            </div>
+
+            <div class="feature-card">
+              <h3>❌ Avoid convert mode for:</h3>
+              <ul class="list-disc pl-6 text-slate-400 space-y-2 mt-2">
+                <li><strong>Internal APIs:</strong> If you control both ends, keep strict typing for better error detection.</li>
+                <li><strong>Database records:</strong> Ecto already handles types. Don't convert again.</li>
+                <li><strong>Message queues:</strong> Use structured formats (JSON with proper types) for better reliability.</li>
+                <li><strong>Configuration files:</strong> Config should be properly typed from the start.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Advanced scenarios</p>
+            <h2 class="section-title">Complex conversion patterns</h2>
+          </div>
+
+          <div class="space-y-6">
+            <div class="code-card">
+              <div class="code-header">
+                <span>Mixed types with defaults</span>
+                <button class="copy-btn" data-clipboard-target="#cm-mixed">Copy</button>
+              </div>
+              <pre><code id="cm-mixed">schema = ExJoi.schema(%{
+  page: ExJoi.number(min: 1, integer: true),
+  per_page: ExJoi.number(min: 1, max: 100, integer: true),
+  active: ExJoi.boolean(),
+  tags: ExJoi.array(of: ExJoi.string(), delimiter: ","),
+  created_at: ExJoi.date()
+}, defaults: %{
+  page: 1,
+  per_page: 20,
+  active: true
+})
+
+# Partial data with string values
+params = %{
+  "page" => "2",
+  "per_page" => "50",
+  "active" => "false",
+  "tags" => "elixir,phoenix",
+  "created_at" => "2025-01-15T10:00:00Z"
+}
+
+{:ok, normalized} = ExJoi.validate(params, schema, convert: true)
+# normalized = %{
+#   "page" => 2,
+#   "per_page" => 50,
+#   "active" => false,
+#   "tags" => ["elixir", "phoenix"],
+#   "created_at" => ~U[2025-01-15 10:00:00Z]
+# }
+
+# Missing fields get defaults
+params = %{"page" => "3"}
+{:ok, normalized} = ExJoi.validate(params, schema, convert: true)
+# normalized = %{
+#   "page" => 3,
+#   "per_page" => 20,  # from defaults
+#   "active" => true   # from defaults
+# }</code></pre>
+            </div>
+
+            <div class="code-card">
+              <div class="code-header">
+                <span>Nested conversions</span>
+                <button class="copy-btn" data-clipboard-target="#cm-nested">Copy</button>
+              </div>
+              <pre><code id="cm-nested">schema = ExJoi.schema(%{
+  user: ExJoi.object(%{
+    age: ExJoi.number(min: 18, integer: true),
+    active: ExJoi.boolean(),
+    preferences: ExJoi.object(%{
+      notifications: ExJoi.boolean(),
+      theme: ExJoi.string(in: ["light", "dark"])
+    })
+  }),
+  items: ExJoi.array(
+    of: ExJoi.object(%{
+      quantity: ExJoi.number(min: 1, integer: true),
+      price: ExJoi.number(min: 0)
+    }),
+    delimiter: ";"
+  )
+})
+
+params = %{
+  "user" => %{
+    "age" => "25",
+    "active" => "true",
+    "preferences" => %{
+      "notifications" => "false",
+      "theme" => "dark"
+    }
+  },
+  "items" => "quantity:5,price:99.99;quantity:2,price:49.99"
+}
+
+# Note: Nested object conversions work, but array delimiter
+# only applies to top-level string-to-array conversion
+# For nested arrays, you'd need to handle the string format differently</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Gotchas and edge cases</p>
+            <h2 class="section-title">Stay intentional</h2>
+          </div>
+          <div class="feature-card space-y-4">
+            <div>
+              <h3>1. Empty strings still fail</h3>
+              <p class="text-slate-400">Convert mode trims but never turns empty strings into <code>nil</code>. Use <code>defaults</code> if you want that behavior.</p>
+              <div class="code-card mt-2">
+                <pre><code># This fails
+ExJoi.validate(%{"age" => ""}, schema, convert: true)
+# {:error, %{errors_flat: %{"age" => ["must be a number"]}}}
+
+# Use defaults instead
+schema = ExJoi.schema(%{
+  age: ExJoi.number()
+}, defaults: %{age: nil})</code></pre>
+              </div>
+            </div>
+            <div>
+              <h3>2. Array delimiters matter</h3>
+              <p class="text-slate-400">Explicitly set <code>:delimiter</code> when accepting semi-colon or pipe separated lists. The default is comma.</p>
+              <div class="code-card mt-2">
+                <pre><code># Wrong delimiter = wrong result
+schema = ExJoi.schema(%{
+  items: ExJoi.array(of: ExJoi.string(), delimiter: ",")
+})
+ExJoi.validate(%{"items" => "a;b;c"}, schema, convert: true)
+# {:ok, %{"items" => ["a;b;c"]}}  # Single item, not split!</code></pre>
+              </div>
+            </div>
+            <div>
+              <h3>3. Custom validators get normalized values</h3>
+              <p class="text-slate-400">ExJoi runs conversions before handing data to <code>ExJoi.custom/2</code>, so your validator can rely on typed inputs.</p>
+              <div class="code-card mt-2">
+                <pre><code>ExJoi.extend(:positive_int, fn value, _ctx ->
+  # value is already a number (if convert: true was used)
+  if is_integer(value) and value > 0 do
+    {:ok, value}
+  else
+    {:error, [%{code: :positive_int, message: "must be a positive integer"}]}
+  end
+end)</code></pre>
+              </div>
+            </div>
+            <div>
+              <h3>4. Boolean conversion is case-sensitive</h3>
+              <p class="text-slate-400">By default, only lowercase strings match truthy/falsy lists. "True" and "TRUE" won't convert unless you add them to your custom lists.</p>
+            </div>
+            <div>
+              <h3>5. Date parsing is strict</h3>
+              <p class="text-slate-400">Only ISO8601 formats are accepted. Common formats like "MM/DD/YYYY" or "DD-MM-YYYY" will fail. You'll need a custom validator for those.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="common-footer"></div>
+
+    <script src="common.js"></script>
+    <script src="scripts.js"></script>
+  </body>
+</html>
+

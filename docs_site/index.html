@@ -11,108 +11,24 @@
     />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js"></script>
-    <style>
-      .section-label {
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        color: rgb(148 163 184);
-      }
-      .section-title {
-        margin-top: 0.25rem;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #fff;
-      }
-      .docs-section {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-      }
-      .feature-card {
-        border-radius: 1.5rem;
-        border: 1px solid rgb(30 41 59);
-        background: rgba(15, 23, 42, 0.4);
-        padding: 1.5rem;
-        box-shadow: 0 20px 40px rgba(2, 6, 23, 0.5);
-      }
-      .feature-card h3 {
-        font-weight: 600;
-        margin-bottom: 0.35rem;
-        color: #fff;
-      }
-      .feature-card p {
-        color: rgb(148 163 184);
-        font-size: 0.95rem;
-      }
-      .code-card {
-        border-radius: 1.5rem;
-        border: 1px solid rgb(30 41 59);
-        background: rgba(2, 6, 23, 0.6);
-        overflow: hidden;
-        box-shadow: 0 20px 45px rgba(2, 6, 23, 0.6);
-      }
-      .code-card pre {
-        padding: 1rem;
-        overflow-x: auto;
-        font-size: 0.9rem;
-      }
-      .code-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: rgba(15, 23, 42, 0.6);
-        padding: 0.65rem 1rem;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        font-size: 0.65rem;
-        color: rgb(148 163 184);
-      }
-      .copy-btn {
-        border-radius: 9999px;
-        border: 1px solid rgb(51 65 85);
-        padding: 0.2rem 0.9rem;
-        font-size: 0.7rem;
-        color: rgb(226 232 240);
-        transition: background 0.2s ease;
-      }
-      .copy-btn:hover {
-        background: rgba(30, 41, 59, 0.6);
-      }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="bg-slate-950 text-slate-100 antialiased">
-    <div class="flex min-h-screen">
-      <aside class="w-72 border-r border-slate-800 bg-slate-900/70 backdrop-blur-xl sticky top-0 max-h-screen overflow-y-auto p-6 hidden lg:block">
-        <div class="flex items-center space-x-3 mb-8">
-          <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-400 to-emerald-400 flex items-center justify-center text-slate-950 font-black">J</div>
-          <div>
-            <p class="text-lg font-semibold">ExJoi</p>
-            <p class="text-slate-400 text-sm">Validation, elevated.</p>
-          </div>
-        </div>
-        <nav class="space-y-1 text-sm">
-          <a href="#overview" class="nav-link">Overview</a>
-          <a href="#quick-start" class="nav-link">Quick Start</a>
-          <a href="#convert-mode" class="nav-link">Convert Mode</a>
-          <a href="#conditional-rules" class="nav-link">Conditional Rules</a>
-          <a href="#custom-validators" class="nav-link">Custom Validators</a>
-          <a href="#live-playground" class="nav-link">Live Playground</a>
-          <a href="#roadmap" class="nav-link">Roadmap</a>
-        </nav>
-      </aside>
+    <div id="common-header"></div>
+    <div class="flex min-h-screen pt-16">
+      <div id="common-sidebar"></div>
 
-      <main class="flex-1 px-6 py-10 lg:px-16 space-y-16">
+      <main class="flex-1 px-6 py-10 lg:px-16 space-y-16 lg:ml-0">
         <header class="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900/60 to-slate-900/20 p-10 shadow-2xl">
           <p class="inline-flex items-center rounded-full border border-slate-700 px-3 py-1 text-xs uppercase tracking-widest text-slate-400">
-            v0.7 · Custom validators + plugins
+            v0.8 · Error tree + translations
           </p>
           <h1 class="mt-4 text-4xl font-black text-white">ExJoi brings expressive, real-time validation to Elixir.</h1>
           <p class="mt-4 max-w-3xl text-lg text-slate-300">
             Schema-first DSL. Convert mode. Conditional rules. Custom validators. All packaged with an extendable runtime so your product teams can ship cohesive validations everywhere.
           </p>
           <div class="mt-8 flex flex-wrap gap-4">
-            <a href="https://hexdocs.pm/exjoi/0.7.0" class="inline-flex items-center rounded-full bg-white px-5 py-2 font-semibold text-slate-900 shadow-lg shadow-sky-500/40">
+            <a href="https://hexdocs.pm/exjoi/0.8.0" class="inline-flex items-center rounded-full bg-white px-5 py-2 font-semibold text-slate-900 shadow-lg shadow-sky-500/40">
               View HexDocs
             </a>
             <a href="https://github.com/abrshewube/ExJoi" class="inline-flex items-center rounded-full border border-slate-700 px-5 py-2 font-semibold text-slate-100">
@@ -134,9 +50,43 @@
               <p>Toggle convert mode per validation and register custom validators via <code>ExJoi.extend/2</code>.</p>
             </article>
             <article class="feature-card">
-              <h3>Custom error builders</h3>
-              <p>Shape errors to match your API contracts with <code>ExJoi.configure(error_builder: ...)</code>.</p>
+              <h3>Error tree &amp; translations</h3>
+              <p>Consume flattened, path-based errors and global translators for localized messaging.</p>
             </article>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Deep Guides</p>
+            <h2 class="section-title">Each topic gets its own page</h2>
+            <p class="text-slate-400 mt-2">Prefer multi-page docs? Jump into these standalone guides.</p>
+          </div>
+          <div class="grid gap-6 md:grid-cols-2">
+            <a class="feature-card hover:bg-slate-900/60 transition" href="quickstart.html">
+              <h3>Quick Start</h3>
+              <p>Installation, schema scaffolding, workflows, and CLI commands.</p>
+            </a>
+            <a class="feature-card hover:bg-slate-900/60 transition" href="convert-mode.html">
+              <h3>Convert Mode</h3>
+              <p>Type matrix, casting strategies, and safety tips.</p>
+            </a>
+            <a class="feature-card hover:bg-slate-900/60 transition" href="conditional-rules.html">
+              <h3>Conditional Rules</h3>
+              <p>Everything about <code>ExJoi.when/3</code>, from simple cases to nested branches.</p>
+            </a>
+            <a class="feature-card hover:bg-slate-900/60 transition" href="custom-validators.html">
+              <h3>Custom Validators</h3>
+              <p>Register functions or modules, share plugins, and shape error builders.</p>
+            </a>
+            <a class="feature-card hover:bg-slate-900/60 transition" href="error-tree.html">
+              <h3>Error Tree</h3>
+              <p>Consume <code>errors_flat</code>, translate copy, and integrate with your API.</p>
+            </a>
+            <a class="feature-card hover:bg-slate-900/60 transition" href="playground.html">
+              <h3>Playground</h3>
+              <p>Live schema demo with convert toggle, conditional logic, and JSON sandbox.</p>
+            </a>
           </div>
         </section>
 
@@ -152,7 +102,7 @@
             </div>
             <pre><code id="deps-snippet">defp deps do
   [
-    {:exjoi, "~> 0.7.0"}
+    {:exjoi, "~> 0.8.0"}
   ]
 end</code></pre>
           </div>
@@ -173,6 +123,43 @@ end</code></pre>
         otherwise: ExJoi.array(of: ExJoi.string())
       )
   })</code></pre>
+          </div>
+        </section>
+
+        <section id="error-tree" class="docs-section">
+          <div>
+            <p class="section-label">Error Tree</p>
+            <h2 class="section-title">Path-based errors &amp; translations</h2>
+            <p class="mt-2 text-slate-400">
+              Use the new <code>errors_flat</code> map for dotted paths (e.g., <code>user.email</code>) and plug a translator for localized copy.
+            </p>
+          </div>
+          <div class="grid gap-6 lg:grid-cols-2">
+            <div class="code-card">
+              <div class="code-header">
+                <span>Flattened output</span>
+                <button class="copy-btn" data-clipboard-target="#flat-snippet">Copy</button>
+              </div>
+              <pre><code id="flat-snippet">{:error,
+ %{
+   errors_flat: %{
+     "user.email" => ["must be a valid email"],
+     "permissions.0" => ["must be at least 3 characters"]
+   }
+ }}</code></pre>
+            </div>
+            <div class="code-card">
+              <div class="code-header">
+                <span>Translator hook</span>
+                <button class="copy-btn" data-clipboard-target="#translator-snippet">Copy</button>
+              </div>
+              <pre><code id="translator-snippet">ExJoi.configure(
+  message_translator: fn
+    :required, _default, _meta -> "es requerido"
+    _code, default, _meta -> default
+  end
+)</code></pre>
+            </div>
           </div>
         </section>
 
@@ -315,7 +302,12 @@ end</code></pre>
               </thead>
               <tbody class="divide-y divide-slate-800">
                 <tr class="bg-white/5">
-                  <td class="px-6 py-4 font-semibold">7 (current)</td>
+                  <td class="px-6 py-4 font-semibold">8 (current)</td>
+                  <td class="px-6 py-4 text-emerald-400">Shipped</td>
+                  <td class="px-6 py-4">Path-based error tree, translator hooks, enhanced builder</td>
+                </tr>
+                <tr>
+                  <td class="px-6 py-4 font-semibold">7</td>
                   <td class="px-6 py-4 text-emerald-400">Shipped</td>
                   <td class="px-6 py-4">Custom validators, plugin registry, error builder overrides</td>
                 </tr>
@@ -337,20 +329,20 @@ end</code></pre>
                 <tr>
                   <td class="px-6 py-4 font-semibold">Next</td>
                   <td class="px-6 py-4 text-slate-300">In design</td>
-                  <td class="px-6 py-4">Conditional rules + plugins working together with async validation</td>
+                  <td class="px-6 py-4">Async / parallel validation, macro DSL, performance improvements</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </section>
 
-        <footer class="py-10 text-center text-sm text-slate-500">
-          Built with Tailwind, highlight.js, clipboard.js — ExJoi © 2025.
-        </footer>
       </main>
     </div>
 
-    <script src="./scripts.js"></script>
+    <div id="common-footer"></div>
+
+    <script src="common.js"></script>
+    <script src="scripts.js"></script>
   </body>
 </html>
 

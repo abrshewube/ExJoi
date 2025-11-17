@@ -5,7 +5,8 @@ defmodule ExJoi.Config do
 
   @default %{
     custom_types: %{},
-    error_builder: &__MODULE__.default_error_builder/1
+    error_builder: &__MODULE__.default_error_builder/1,
+    message_translator: &__MODULE__.default_message_translator/3
   }
 
   def get do
@@ -45,6 +46,14 @@ defmodule ExJoi.Config do
     get().error_builder
   end
 
+  def set_message_translator(fun) when is_function(fun, 3) do
+    update(&Map.put(&1, :message_translator, fun))
+  end
+
+  def message_translator do
+    get().message_translator
+  end
+
   def reset! do
     :persistent_term.put(@config_key, @default)
     :ok
@@ -56,6 +65,8 @@ defmodule ExJoi.Config do
       errors: errors
     }
   end
+
+  def default_message_translator(_code, default_message, _meta), do: default_message
 
   defp update(fun) do
     :persistent_term.put(@config_key, fun.(get()))

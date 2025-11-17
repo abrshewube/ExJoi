@@ -416,5 +416,37 @@ defmodule ExJoiTest do
       assert {:error, %{status: :failed, issues: issues}} = ExJoi.validate(%{}, schema)
       assert Map.has_key?(issues, :name)
     end
+
+    test "errors_flat contains path-based entries" do
+      schema =
+        ExJoi.schema(%{
+          user:
+            ExJoi.object(%{
+              email: ExJoi.string(required: true, email: true)
+            })
+        })
+
+      assert {:error, %{errors_flat: flat}} =
+               ExJoi.validate(%{user: %{email: "nope"}}, schema)
+
+      assert Map.has_key?(flat, "user.email")
+      assert Enum.any?(flat["user.email"], &String.contains?(&1, "email"))
+    end
+
+    test "message translator customizes error copy" do
+      on_exit(fn -> ExJoi.Config.reset!() end)
+
+      ExJoi.configure(
+        message_translator: fn
+          :required, _default, _meta -> "es requerido"
+          _code, default, _meta -> default
+        end
+      )
+
+      schema = ExJoi.schema(%{name: ExJoi.string(required: true)})
+
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{}, schema)
+      assert [%{message: "es requerido"}] = errors.name
+    end
   end
 end

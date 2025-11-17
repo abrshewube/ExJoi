@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ExJoi · Quick Start</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="bg-slate-950 text-slate-100 antialiased">
+    <div id="common-header"></div>
+    <div class="flex min-h-screen pt-16">
+      <div id="common-sidebar"></div>
+
+      <main class="flex-1 px-6 py-10 lg:px-16 space-y-12 pb-16">
+        <section class="docs-section">
+          <p class="hero-badge">Guide</p>
+          <h1 class="section-title text-4xl">Quick Start &amp; Workflow</h1>
+          <p class="text-slate-300 leading-relaxed">
+            Follow this path to get ExJoi running in a fresh Elixir project. We cover installation, schema design, validation, and tooling so you can ship consistent rules across APIs, CLIs, and workers.
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">API Reference</p>
+            <h2 class="section-title">Core Functions</h2>
+            <p class="text-slate-400 mt-2">Complete reference for all ExJoi functions with parameters, options, and examples.</p>
+          </div>
+
+          <div class="space-y-8">
+            <div class="feature-card">
+              <h3><code>ExJoi.schema/2</code></h3>
+              <p class="text-slate-400 mb-4">Creates a validation schema from a map of field rules.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Parameters</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>fields</code> (map, required) - Map where keys are field names and values are rule definitions</li>
+                    <li><code>opts</code> (keyword list, optional) - Options for the schema</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Options</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:defaults</code> (map) - Default values merged into input data before validation (top-level only)</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Returns</p>
+                  <p class="text-slate-400 text-sm"><code>%ExJoi.Schema{}</code> - A schema struct ready for validation</p>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Examples</span>
+                    <button class="copy-btn" data-clipboard-target="#api-schema">Copy</button>
+                  </div>
+                  <pre><code id="api-schema"># Basic schema
+schema = ExJoi.schema(%{
+  name: ExJoi.string(required: true),
+  age: ExJoi.number()
+})
+
+# Schema with defaults
+schema = ExJoi.schema(
+  %{
+    name: ExJoi.string(required: true),
+    active: ExJoi.boolean()
+  },
+  defaults: %{active: true}
+)</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3><code>ExJoi.validate/3</code></h3>
+              <p class="text-slate-400 mb-4">Validates data against a schema. Returns <code>{:ok, validated_data}</code> on success or <code>{:error, errors}</code> on failure.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Parameters</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>data</code> (map, required) - The data to validate</li>
+                    <li><code>schema</code> (<code>%ExJoi.Schema{}</code>, required) - The schema to validate against</li>
+                    <li><code>opts</code> (keyword list, optional) - Validation options</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Options</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:convert</code> (boolean, default: <code>false</code>) - Enable type coercion (string to number, boolean, date, array)</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Returns</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>{:ok, validated_data}</code> - Success tuple with validated and normalized data</li>
+                    <li><code>{:error, error_map}</code> - Error tuple with structured error information</li>
+                  </ul>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Examples</span>
+                    <button class="copy-btn" data-clipboard-target="#api-validate">Copy</button>
+                  </div>
+                  <pre><code id="api-validate"># Strict validation
+ExJoi.validate(%{name: "John", age: 30}, schema)
+# => {:ok, %{name: "John", age: 30}}
+
+# With convert mode
+ExJoi.validate(%{"name" => "John", "age" => "30"}, schema, convert: true)
+# => {:ok, %{"name" => "John", "age" => 30}}
+
+# Validation failure
+ExJoi.validate(%{age: 30}, schema)
+# => {:error, %{message: "Validation failed", errors: %{name: [%{code: :required, message: "is required"}]}, errors_flat: %{"name" => ["is required"]}}}</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3><code>ExJoi.string/1</code></h3>
+              <p class="text-slate-400 mb-4">Creates a string validator rule.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Options</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:required</code> (boolean, default: <code>false</code>) - Field must be present</li>
+                    <li><code>:min</code> (integer) - Minimum string length</li>
+                    <li><code>:max</code> (integer) - Maximum string length</li>
+                    <li><code>:pattern</code> (Regex) - Regex pattern the string must match</li>
+                    <li><code>:email</code> (boolean, default: <code>false</code>) - Validate email format</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Returns</p>
+                  <p class="text-slate-400 text-sm"><code>%ExJoi.Rule{type: :string, ...}</code></p>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Examples</span>
+                    <button class="copy-btn" data-clipboard-target="#api-string">Copy</button>
+                  </div>
+                  <pre><code id="api-string">ExJoi.string()
+ExJoi.string(required: true, min: 3, max: 50)
+ExJoi.string(pattern: ~r/^[A-Z]+$/)
+ExJoi.string(email: true)</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3><code>ExJoi.number/1</code></h3>
+              <p class="text-slate-400 mb-4">Creates a number validator rule.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Options</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:required</code> (boolean, default: <code>false</code>) - Field must be present</li>
+                    <li><code>:min</code> (number) - Minimum value (inclusive)</li>
+                    <li><code>:max</code> (number) - Maximum value (inclusive)</li>
+                    <li><code>:integer</code> (boolean, default: <code>false</code>) - Only accept integers</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Returns</p>
+                  <p class="text-slate-400 text-sm"><code>%ExJoi.Rule{type: :number, ...}</code></p>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Examples</span>
+                    <button class="copy-btn" data-clipboard-target="#api-number">Copy</button>
+                  </div>
+                  <pre><code id="api-number">ExJoi.number()
+ExJoi.number(required: true, min: 18, max: 65)
+ExJoi.number(integer: true)
+ExJoi.number(min: 0, max: 100)</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3><code>ExJoi.boolean/1</code></h3>
+              <p class="text-slate-400 mb-4">Creates a boolean validator rule.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Options</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:required</code> (boolean, default: <code>false</code>) - Field must be present</li>
+                    <li><code>:truthy</code> (list) - Custom list of values that coerce to <code>true</code></li>
+                    <li><code>:falsy</code> (list) - Custom list of values that coerce to <code>false</code></li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Default Truthy Values</p>
+                  <p class="text-slate-400 text-sm"><code>[true, "true", "True", "TRUE", "1", 1, "yes", "Yes", "YES", "on", "On", "ON"]</code></p>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Default Falsy Values</p>
+                  <p class="text-slate-400 text-sm"><code>[false, "false", "False", "FALSE", "0", 0, "no", "No", "NO", "off", "Off", "OFF"]</code></p>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Returns</p>
+                  <p class="text-slate-400 text-sm"><code>%ExJoi.Rule{type: :boolean, ...}</code></p>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Examples</span>
+                    <button class="copy-btn" data-clipboard-target="#api-boolean">Copy</button>
+                  </div>
+                  <pre><code id="api-boolean">ExJoi.boolean()
+ExJoi.boolean(required: true)
+ExJoi.boolean(truthy: ["Y"], falsy: ["N"])
+ExJoi.boolean(truthy: ["enabled", "active"], falsy: ["disabled", "inactive"])</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3><code>ExJoi.object/2</code></h3>
+              <p class="text-slate-400 mb-4">Creates a nested object validator. Accepts either a map of field rules or an existing <code>%ExJoi.Schema{}</code>.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Parameters</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>fields_or_schema</code> (map | <code>%ExJoi.Schema{}</code>, required) - Either a map of field rules or a schema</li>
+                    <li><code>opts</code> (keyword list, optional) - Options for the object rule</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Options</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:required</code> (boolean, default: <code>false</code>) - Object must be present</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Returns</p>
+                  <p class="text-slate-400 text-sm"><code>%ExJoi.Rule{type: :object, schema: %ExJoi.Schema{}, ...}</code></p>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Examples</span>
+                    <button class="copy-btn" data-clipboard-target="#api-object">Copy</button>
+                  </div>
+                  <pre><code id="api-object"># From map
+ExJoi.object(%{
+  email: ExJoi.string(required: true, email: true),
+  phone: ExJoi.string()
+})
+
+# From schema
+nested_schema = ExJoi.schema(%{email: ExJoi.string(email: true)})
+ExJoi.object(nested_schema, required: true)</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3><code>ExJoi.array/1</code></h3>
+              <p class="text-slate-400 mb-4">Creates an array validator rule.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Options</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:required</code> (boolean, default: <code>false</code>) - Array must be present</li>
+                    <li><code>:of</code> (<code>%ExJoi.Rule{}</code>) - Rule applied to each element</li>
+                    <li><code>:min_items</code> or <code>:min</code> (integer) - Minimum array length</li>
+                    <li><code>:max_items</code> or <code>:max</code> (integer) - Maximum array length</li>
+                    <li><code>:unique</code> (boolean, default: <code>false</code>) - All elements must be unique</li>
+                    <li><code>:delimiter</code> (string, default: <code>","</code>) - Delimiter for string-to-array coercion</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Returns</p>
+                  <p class="text-slate-400 text-sm"><code>%ExJoi.Rule{type: :array, ...}</code></p>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Examples</span>
+                    <button class="copy-btn" data-clipboard-target="#api-array">Copy</button>
+                  </div>
+                  <pre><code id="api-array">ExJoi.array(of: ExJoi.string(min: 3), min_items: 1)
+ExJoi.array(of: ExJoi.number(integer: true), unique: true)
+ExJoi.array(delimiter: "|")
+ExJoi.array(of: ExJoi.string(), min_items: 1, max_items: 10, unique: true)</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3><code>ExJoi.date/1</code></h3>
+              <p class="text-slate-400 mb-4">Creates a date validator rule. Values are returned as <code>DateTime</code> structs when parsing succeeds.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Options</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:required</code> (boolean, default: <code>false</code>) - Date must be present</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Returns</p>
+                  <p class="text-slate-400 text-sm"><code>%ExJoi.Rule{type: :date, ...}</code></p>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Examples</span>
+                    <button class="copy-btn" data-clipboard-target="#api-date">Copy</button>
+                  </div>
+                  <pre><code id="api-date">ExJoi.date()
+ExJoi.date(required: true)</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">01 · Install</p>
+            <h2 class="section-title">Bring ExJoi into your project</h2>
+            <p class="text-slate-400 mt-2">Add the dependency, fetch packages, and make sure the docs task is available for local previews.</p>
+          </div>
+          <div class="grid gap-6 lg:grid-cols-2">
+            <div class="code-card">
+              <div class="code-header">
+                <span>mix.exs</span>
+                <button class="copy-btn" data-clipboard-target="#qs-deps">Copy</button>
+              </div>
+              <pre><code id="qs-deps">defp deps do
+  [
+    {:exjoi, "~> 0.8.0"},
+    {:ex_doc, "~> 0.30", only: :dev, runtime: false}
+  ]
+end</code></pre>
+            </div>
+            <div class="code-card">
+              <div class="code-header">
+                <span>CLI</span>
+                <button class="copy-btn" data-clipboard-target="#qs-cli">Copy</button>
+              </div>
+              <pre><code id="qs-cli">$ mix deps.get
+$ mix compile
+$ mix docs   # optional: preview documentation locally</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">02 · Build a schema</p>
+            <h2 class="section-title">Describe data with the DSL</h2>
+            <p class="text-slate-400 mt-2">
+              Start with a map of fields and attach typed rules. Everything is composable, so you can nest objects, arrays, conditionals, and customs as needed.
+            </p>
+          </div>
+          <div class="code-card">
+            <div class="code-header">
+              <span>schema.ex</span>
+              <button class="copy-btn" data-clipboard-target="#qs-schema">Copy</button>
+            </div>
+            <pre><code id="qs-schema">schema =
+  ExJoi.schema(%{
+    name: ExJoi.string(required: true, min: 2, max: 50),
+    age: ExJoi.number(required: true, min: 18),
+    role: ExJoi.string(required: true),
+    permissions:
+      ExJoi.when(
+        :role,
+        is: "admin",
+        then: ExJoi.array(of: ExJoi.string(min: 3), min_items: 1, required: true),
+        otherwise: ExJoi.array(of: ExJoi.string())
+      ),
+    profile:
+      ExJoi.object(%{
+        email: ExJoi.string(required: true, email: true),
+        timezone: ExJoi.string()
+      })
+  })</code></pre>
+          </div>
+          <p class="text-slate-400">
+            Pro tip: keep schemas close to the boundary you’re validating (controllers, LiveView handlers, etc.) so you can inject context such as locale-based messages or convert mode per request.
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">03 · Validate data</p>
+            <h2 class="section-title">Strict by default, convert when you need it</h2>
+          </div>
+          <div class="grid gap-6 lg:grid-cols-2">
+            <div class="code-card">
+              <div class="code-header">
+                <span>Strict mode</span>
+                <button class="copy-btn" data-clipboard-target="#qs-strict">Copy</button>
+              </div>
+              <pre><code id="qs-strict">params = %{"name" => "Maya", "age" => 29, "role" => "editor"}
+ExJoi.validate(params, schema)
+# {:error, %{errors: %{profile: %{email: [%{message: "is required"}]}}}}</code></pre>
+            </div>
+            <div class="code-card">
+              <div class="code-header">
+                <span>Convert mode</span>
+                <button class="copy-btn" data-clipboard-target="#qs-convert">Copy</button>
+              </div>
+              <pre><code id="qs-convert">params = %{
+  "name" => "Maya",
+  "age" => "29",
+  "role" => "admin",
+  "permissions" => "read,write",
+  "profile" => %{"email" => "maya@example.com"}
+}
+
+ExJoi.validate(params, schema, convert: true)</code></pre>
+            </div>
+          </div>
+          <ul class="list-disc pl-6 text-slate-400 space-y-1">
+            <li>Convert mode affects numbers, booleans, ISO8601 dates, and arrays (using the delimiter you set).</li>
+            <li>Conditional rules still run after conversion, so an admin with empty permissions fails even if other data passes.</li>
+          </ul>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">04 · Common patterns</p>
+            <h2 class="section-title">Real-world schema examples</h2>
+            <p class="text-slate-400 mt-2">See how ExJoi handles common validation scenarios in production applications.</p>
+          </div>
+          
+          <div class="space-y-6">
+            <div class="code-card">
+              <div class="code-header">
+                <span>User registration</span>
+                <button class="copy-btn" data-clipboard-target="#qs-register">Copy</button>
+              </div>
+              <pre><code id="qs-register">defmodule MyApp.Schemas.UserRegistration do
+  def schema do
+    ExJoi.schema(%{
+      email: ExJoi.string(required: true, email: true, max: 255),
+      password: ExJoi.string(required: true, min: 8, max: 128),
+      password_confirmation: ExJoi.string(required: true),
+      name: ExJoi.string(required: true, min: 2, max: 100),
+      age: ExJoi.number(min: 13, max: 120, integer: true),
+      terms_accepted: ExJoi.boolean(required: true, truthy: ["true", "1", "yes"]),
+      newsletter: ExJoi.boolean(truthy: ["true", "1"]),
+      preferences: ExJoi.object(%{
+        theme: ExJoi.string(in: ["light", "dark", "auto"]),
+        language: ExJoi.string(min: 2, max: 5)
+      })
+    })
+  end
+end
+
+# Usage in controller
+def create(conn, params) do
+  case ExJoi.validate(params, UserRegistration.schema(), convert: true) do
+    {:ok, normalized} ->
+      # Additional business logic: check password match
+      if normalized["password"] == normalized["password_confirmation"] do
+        Users.create(normalized)
+      else
+        {:error, %{errors_flat: %{"password_confirmation" => ["must match password"]}}}
+      end
+    
+    {:error, %{errors_flat: errors}} ->
+      conn
+      |> put_status(:unprocessable_entity)
+      |> json(%{errors: errors})
+  end
+end</code></pre>
+            </div>
+
+            <div class="code-card">
+              <div class="code-header">
+                <span>API pagination</span>
+                <button class="copy-btn" data-clipboard-target="#qs-pagination">Copy</button>
+              </div>
+              <pre><code id="qs-pagination">defmodule MyApp.Schemas.Pagination do
+  def schema do
+    ExJoi.schema(%{
+      page: ExJoi.number(min: 1, integer: true),
+      per_page: ExJoi.number(min: 1, max: 100, integer: true),
+      sort: ExJoi.string(in: ["asc", "desc"]),
+      order_by: ExJoi.string(min: 1, max: 50)
+    }, defaults: %{page: 1, per_page: 20, sort: "desc"})
+  end
+end
+
+# Usage
+params = %{"page" => "2", "per_page" => "50"}
+{:ok, normalized} = ExJoi.validate(params, Pagination.schema(), convert: true)
+# normalized = %{"page" => 2, "per_page" => 50, "sort" => "desc", "order_by" => nil}</code></pre>
+            </div>
+
+            <div class="code-card">
+              <div class="code-header">
+                <span>Nested data structures</span>
+                <button class="copy-btn" data-clipboard-target="#qs-nested">Copy</button>
+              </div>
+              <pre><code id="qs-nested">schema = ExJoi.schema(%{
+  company: ExJoi.object(%{
+    name: ExJoi.string(required: true, min: 2, max: 100),
+    website: ExJoi.string(pattern: ~r/^https?:\/\/.+/),
+    address: ExJoi.object(%{
+      street: ExJoi.string(required: true),
+      city: ExJoi.string(required: true),
+      zip: ExJoi.string(required: true, pattern: ~r/^\d{5}(-\d{4})?$/),
+      country: ExJoi.string(required: true, min: 2, max: 2)
+    })
+  }),
+  employees: ExJoi.array(
+    of: ExJoi.object(%{
+      name: ExJoi.string(required: true, min: 2),
+      email: ExJoi.string(required: true, email: true),
+      role: ExJoi.string(required: true, in: ["developer", "designer", "manager"])
+    }),
+    min_items: 1,
+    unique: true
+  )
+})</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">05 · Integration patterns</p>
+            <h2 class="section-title">Where to use ExJoi in your app</h2>
+            <p class="text-slate-400 mt-2">ExJoi fits naturally into Phoenix controllers, LiveView handlers, and background jobs.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="feature-card">
+              <h3>Phoenix Controllers</h3>
+              <div class="code-card mt-4">
+                <div class="code-header">
+                  <span>controller.ex</span>
+                  <button class="copy-btn" data-clipboard-target="#qs-controller">Copy</button>
+                </div>
+                <pre><code id="qs-controller">defmodule MyAppWeb.UserController do
+  use MyAppWeb, :controller
+
+  def create(conn, params) do
+    case ExJoi.validate(params, UserSchema.schema(), convert: true) do
+      {:ok, normalized} ->
+        case Users.create(normalized) do
+          {:ok, user} ->
+            conn
+            |> put_status(:created)
+            |> json(%{data: user})
+          
+          {:error, changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{errors: format_changeset_errors(changeset)})
+        end
+      
+      {:error, %{errors_flat: errors}} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: errors})
+    end
+  end
+end</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>Phoenix LiveView</h3>
+              <div class="code-card mt-4">
+                <div class="code-header">
+                  <span>live_view.ex</span>
+                  <button class="copy-btn" data-clipboard-target="#qs-liveview">Copy</button>
+                </div>
+                <pre><code id="qs-liveview">defmodule MyAppWeb.UserLive.Form do
+  use MyAppWeb, :live_view
+
+  def handle_event("validate", %{"user" => params}, socket) do
+    case ExJoi.validate(params, UserSchema.schema(), convert: true) do
+      {:ok, normalized} ->
+        {:noreply, assign(socket, :form_errors, %{})}
+      
+      {:error, %{errors_flat: errors}} ->
+        {:noreply, assign(socket, :form_errors, errors)}
+    end
+  end
+
+  def handle_event("save", %{"user" => params}, socket) do
+    case ExJoi.validate(params, UserSchema.schema(), convert: true) do
+      {:ok, normalized} ->
+        case Users.create(normalized) do
+          {:ok, _user} ->
+            {:noreply, redirect(socket, to: ~p"/users")}
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Failed to create user")}
+        end
+      
+      {:error, %{errors_flat: errors}} ->
+        {:noreply, assign(socket, :form_errors, errors)}
+    end
+  end
+end</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>Command Pattern</h3>
+              <div class="code-card mt-4">
+                <div class="code-header">
+                  <span>command.ex</span>
+                  <button class="copy-btn" data-clipboard-target="#qs-command">Copy</button>
+                </div>
+                <pre><code id="qs-command">defmodule MyApp.Commands.CreateOrder do
+  defstruct [:user_id, :items, :shipping_address]
+
+  def new(params) do
+    schema = ExJoi.schema(%{
+      user_id: ExJoi.string(required: true),
+      items: ExJoi.array(
+        of: ExJoi.object(%{
+          product_id: ExJoi.string(required: true),
+          quantity: ExJoi.number(required: true, min: 1, integer: true)
+        }),
+        min_items: 1
+      ),
+      shipping_address: ExJoi.object(%{
+        street: ExJoi.string(required: true),
+        city: ExJoi.string(required: true),
+        zip: ExJoi.string(required: true)
+      })
+    })
+
+    case ExJoi.validate(params, schema, convert: true) do
+      {:ok, normalized} ->
+        {:ok, struct(__MODULE__, normalized)}
+      
+      {:error, errors} ->
+        {:error, errors}
+    end
+  end
+end</code></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">06 · Testing</p>
+            <h2 class="section-title">Test your schemas thoroughly</h2>
+            <p class="text-slate-400 mt-2">Write comprehensive tests to ensure your validation rules work as expected.</p>
+          </div>
+
+          <div class="code-card">
+            <div class="code-header">
+              <span>schema_test.exs</span>
+              <button class="copy-btn" data-clipboard-target="#qs-test">Copy</button>
+            </div>
+            <pre><code id="qs-test">defmodule MyApp.Schemas.UserSchemaTest do
+  use ExUnit.Case, async: true
+  alias MyApp.Schemas.UserSchema
+
+  describe "validate/2" do
+    test "accepts valid user data" do
+      params = %{
+        "name" => "John Doe",
+        "email" => "john@example.com",
+        "age" => 25
+      }
+
+      assert {:ok, normalized} = ExJoi.validate(params, UserSchema.schema())
+      assert normalized["name"] == "John Doe"
+      assert normalized["email"] == "john@example.com"
+    end
+
+    test "rejects invalid email" do
+      params = %{
+        "name" => "John Doe",
+        "email" => "not-an-email",
+        "age" => 25
+      }
+
+      assert {:error, %{errors_flat: errors}} = ExJoi.validate(params, UserSchema.schema())
+      assert Map.has_key?(errors, "email")
+    end
+
+    test "converts string numbers with convert: true" do
+      params = %{
+        "name" => "John",
+        "age" => "25"
+      }
+
+      assert {:ok, normalized} = ExJoi.validate(params, UserSchema.schema(), convert: true)
+      assert normalized["age"] == 25
+      assert is_integer(normalized["age"])
+    end
+
+    test "requires all mandatory fields" do
+      params = %{"name" => "John"}
+
+      assert {:error, %{errors_flat: errors}} = ExJoi.validate(params, UserSchema.schema())
+      assert Map.has_key?(errors, "email")
+    end
+  end
+end</code></pre>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">07 · Suggested workflow</p>
+            <h2 class="section-title">Ship validations confidently</h2>
+          </div>
+          <div class="overflow-hidden rounded-3xl border border-slate-800">
+            <table class="table-luxe">
+              <thead>
+                <tr>
+                  <th>Step</th>
+                  <th>Description</th>
+                  <th>Tools</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Model</td>
+                  <td>Sketch schemas alongside API contracts or LiveView assigns.</td>
+                  <td>Figma, ADRs, ExJoi schema tests</td>
+                </tr>
+                <tr>
+                  <td>Validate</td>
+                  <td>Call <code>ExJoi.validate/3</code> at the boundary, returning normalized data or errors.</td>
+                  <td>Pipelines, plug middleware, command handlers</td>
+                </tr>
+                <tr>
+                  <td>Translate</td>
+                  <td>Use <code>message_translator</code> for localized copy, and your own <code>error_builder</code> for API-shaped payloads.</td>
+                  <td>Gettext, central error modules</td>
+                </tr>
+                <tr>
+                  <td>Automate</td>
+                  <td>Run <code>mix test</code>/<code>mix docs</code> in CI so schema changes surface immediately.</td>
+                  <td>GitHub Actions, Buildkite, Fly CI</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">08 · Best practices</p>
+            <h2 class="section-title">Tips for maintainable schemas</h2>
+          </div>
+
+          <div class="space-y-4">
+            <div class="feature-card">
+              <h3>1. Keep schemas close to boundaries</h3>
+              <p class="text-slate-400">Define schemas in the same module or nearby where they're used (controllers, LiveView handlers). This makes it easier to understand context and requirements.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>2. Use defaults for optional fields</h3>
+              <p class="text-slate-400">Instead of making everything optional, use <code>defaults</code> in <code>ExJoi.schema/2</code> to provide sensible defaults. This reduces nil checks downstream.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>3. Extract complex schemas to modules</h3>
+              <p class="text-slate-400">For reusable or complex schemas, create dedicated schema modules. This improves testability and reusability.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>4. Test edge cases</h3>
+              <p class="text-slate-400">Write tests for boundary conditions: empty strings, nil values, very long strings, negative numbers, etc. ExJoi handles these, but your business logic might not.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>5. Use convert mode judiciously</h3>
+              <p class="text-slate-400">Convert mode is powerful but can hide type issues. Use it for external APIs, CSV imports, or form submissions, but keep strict mode for internal APIs.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>6. Combine with Ecto changesets</h3>
+              <p class="text-slate-400">Use ExJoi for input validation at boundaries, then use Ecto changesets for database constraints. They complement each other perfectly.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="common-footer"></div>
+
+    <script src="common.js"></script>
+    <script src="scripts.js"></script>
+  </body>
+</html>
+

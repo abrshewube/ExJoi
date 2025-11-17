@@ -9,7 +9,7 @@ ExJoi brings a Joi-inspired DSL to Elixir, letting you describe data rules once 
 ## Quick Links
 
 - GitHub · https://github.com/abrshewube/ExJoi
-- HexDocs (v0.7.0) · https://hexdocs.pm/exjoi/0.7.0
+- HexDocs (v0.8.0) · https://hexdocs.pm/exjoi/0.8.0
 - Hex Package · https://hex.pm/packages/exjoi
 - Tailwind Docs Site · `docs_site/index.html`
 
@@ -17,13 +17,13 @@ ExJoi brings a Joi-inspired DSL to Elixir, letting you describe data rules once 
 
 ## Highlights
 
-- **Schema-first DSL** – Compose readable validation rules with `ExJoi.string/1`, `number/1`, `boolean/1`, `object/1`, `array/1`, `date/1`, and `when/3`.
+- **Schema-first DSL** – Compose readable validation rules with `ExJoi.string/1`, `number/1`, `boolean/1`, `object/1`, `array/1`, `date/1`, `when/3`, and `custom/2`.
 - **Advanced constraints** – Min/max lengths, regex patterns, email format checks, integer guards, truthy/falsy coercion, and per-item array validation.
 - **Convert mode** – Toggle `convert: true` to coerce numbers, booleans, dates, strings, and arrays like Joi’s “convert” flow.
 - **Conditional rules** – Use `ExJoi.when/3` to change requirements based on other fields, value ranges, or regex matches.
 - **Nested objects & arrays** – Recursively validate deep maps and lists with rich, nested error payloads.
 - **Smart defaults** – Provide top-level defaults that merge into incoming params before validation.
-- **Actionable errors** – Structured responses include machine-friendly codes, friendly messages, and metadata.
+- **Actionable errors** – Structured responses include machine-friendly codes, friendly messages, a flattened error tree, and metadata.
 - **Key-flexible** – Accepts atom or string keys seamlessly, with string-to-array coercion via delimiters.
 
 ---
@@ -35,7 +35,7 @@ Add the dependency and you’re ready to validate:
 ```elixir
 defp deps do
   [
-    {:exjoi, "~> 0.7.0"}
+    {:exjoi, "~> 0.8.0"}
   ]
 end
 ```
@@ -232,6 +232,29 @@ ExJoi.validate(params, schema, convert: true)
 
 When `convert: false` (default), `"42"` and `"true"` would raise type errors.
 
+### Error tree & translations
+
+Every failure now includes a flattened, path-based structure (`errors_flat`) alongside the nested error map. Plug a translator for localized copy.
+
+```elixir
+{:error,
+ %{
+   errors_flat: %{
+     "user.email" => ["must be a valid email"],
+     "permissions.0" => ["must be at least 3 characters"]
+   }
+ }}
+```
+
+```elixir
+ExJoi.configure(
+  message_translator: fn
+    :required, _default, _meta -> "es requerido"
+    _code, default, _meta -> default
+  end
+)
+```
+
 ### Conditional permissions
 
 ```elixir
@@ -264,15 +287,13 @@ ExJoi.schema(%{
 
 | Version | Status  | Highlights |
 | ------- | ------- | ---------- |
-| 7       | Current | Custom validators/plugins, `ExJoi.extend/2`, error builder overrides |
+| 8       | Current | Path-based error tree, message translator, enhanced error builder |
+| 7       | Shipped | Custom validators/plugins, `ExJoi.extend/2`, error builder overrides |
 | 6       | Shipped | Conditional rules (`ExJoi.when/3`) with field/value/range/regex checks |
 | 5       | Shipped | Convert mode (numbers, booleans, dates, strings), ISO date type |
 | 4       | Shipped | Array validation (min/max, unique, delimiter coercion, per-item rules) |
 | 3       | Shipped | Object schemas, nested validation, defaulting |
 | 2       | Shipped | Advanced constraints, truthy/falsy coercion, structured errors |
-| 6       | Planned | Conditional rules |
-| 7       | Planned | Custom validators & plugin system |
-| 8       | Planned | Full error tree & custom error builder |
 | 9       | Planned | Async / parallel validation |
 | 10      | Planned | Macro DSL, compiler, performance optimizations |
 
