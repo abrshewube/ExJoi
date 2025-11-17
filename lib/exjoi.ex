@@ -111,6 +111,22 @@ defmodule ExJoi do
     }
   end
 
+  @doc """
+  Creates a date validator rule.
+
+  ## Options
+
+    * `:required` - Ensures the value is present.
+
+  Values are returned as `DateTime` structs when parsing succeeds.
+  """
+  def date(opts \\ []) do
+    %Rule{
+      type: :date,
+      required: Keyword.get(opts, :required, false)
+    }
+  end
+
 
   @doc """
   Creates a string validator rule.
@@ -187,8 +203,8 @@ defmodule ExJoi do
     %Rule{
       type: :boolean,
       required: Keyword.get(opts, :required, false),
-      truthy: Keyword.get(opts, :truthy, @default_truthy),
-      falsy: Keyword.get(opts, :falsy, @default_falsy)
+      truthy: Keyword.get(opts, :truthy),
+      falsy: Keyword.get(opts, :falsy)
     }
   end
 
@@ -196,6 +212,8 @@ defmodule ExJoi do
   Validates data against a schema.
 
   Returns `{:ok, validated_data}` if validation passes, or `{:error, errors}` if it fails.
+  Accepts optional `opts`, currently supporting `:convert` (default: `false`)
+  to enable type coercion/casting behavior.
 
   ## Examples
 
@@ -206,7 +224,7 @@ defmodule ExJoi do
       ExJoi.validate(%{}, schema)
       # => {:error, %{name: ["is required"]}}
   """
-  def validate(data, %Schema{} = schema) do
-    Validator.validate(data, schema)
+  def validate(data, %Schema{} = schema, opts \\ []) do
+    Validator.validate(data, schema, opts)
   end
 end

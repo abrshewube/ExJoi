@@ -27,7 +27,7 @@ defmodule ExJoi.Rule do
   ]
 
   @type t :: %__MODULE__{
-          type: :string | :number | :boolean | :object | :array,
+          type: :string | :number | :boolean | :object | :array | :date,
           required: boolean(),
           min: integer() | float() | nil,
           max: integer() | float() | nil,

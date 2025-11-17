@@ -4,6 +4,12 @@ defmodule ExJoi.Validator do
   """
 
   alias ExJoi.{Rule, Schema}
+  alias DateTime
+  alias NaiveDateTime
+  alias Date
+
+  @default_truthy [true, "true", "True", "TRUE", "1", 1, "yes", "Yes", "YES", "on", "On", "ON"]
+  @default_falsy [false, "false", "False", "FALSE", "0", 0, "no", "No", "NO", "off", "Off", "OFF"]
 
   @email_regex ~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -12,12 +18,15 @@ defmodule ExJoi.Validator do
 
   Returns `{:ok, validated_data}` if validation passes, or `{:error, errors}` if it fails.
   """
-  def validate(data, %Schema{fields: fields, defaults: defaults}) when is_map(data) do
+  def validate(data, schema, opts \\ [])
+
+  def validate(data, %Schema{fields: fields, defaults: defaults}, opts) when is_map(data) do
+    convert = Keyword.get(opts, :convert, false)
     data_with_defaults = apply_defaults(data, defaults)
 
     {errors, coerced_data} =
       Enum.reduce(fields, {%{}, data_with_defaults}, fn {field_name, rule}, {error_acc, data_acc} ->
-        case validate_field(data_acc, field_name, rule) do
+        case validate_field(data_acc, field_name, rule, convert) do
           {:ok, :missing} ->
             {error_acc, data_acc}
 
@@ -36,11 +45,11 @@ defmodule ExJoi.Validator do
     end
   end
 
-  def validate(_data, _schema) do
+  def validate(_data, _schema, _opts) do
     {:error, format_errors(%{_schema: [error(:invalid_data, "data must be a map")]})}
   end
 
-  defp validate_field(data, field_name, %Rule{} = rule) do
+  defp validate_field(data, field_name, %Rule{} = rule, convert) do
     case fetch_field_value(data, field_name) do
       :missing when rule.required ->
         {:error, [error(:required, "is required")]}
@@ -49,7 +58,7 @@ defmodule ExJoi.Validator do
         {:ok, :missing}
 
       {:ok, key, value} ->
-        case validate_value(value, rule) do
+        case validate_value(value, rule, convert) do
           {:ok, coerced} ->
             {:ok, {key, coerced}}
 
@@ -98,46 +107,37 @@ defmodule ExJoi.Validator do
     end
   end
 
-  defp validate_value(value, %Rule{type: :string} = rule) do
-    with :ok <- ensure_string(value),
-         [] <- string_constraint_errors(value, rule) do
-      {:ok, value}
+  defp validate_value(value, %Rule{type: :string} = rule, convert) do
+    with {:ok, normalized} <- ensure_string(value, convert),
+         [] <- string_constraint_errors(normalized, rule) do
+      {:ok, normalized}
     else
       {:error, errors} -> {:error, errors}
       errors when is_list(errors) -> {:error, errors}
     end
   end
 
-  defp validate_value(value, %Rule{type: :number} = rule) do
-    with :ok <- ensure_number(value),
-         [] <- number_constraint_errors(value, rule) do
-      {:ok, value}
+  defp validate_value(value, %Rule{type: :number} = rule, convert) do
+    with {:ok, number} <- ensure_number(value, convert),
+         [] <- number_constraint_errors(number, rule) do
+      {:ok, number}
     else
       {:error, errors} -> {:error, errors}
       errors when is_list(errors) -> {:error, errors}
     end
   end
 
-  defp validate_value(value, %Rule{type: :boolean} = rule) do
-    cond do
-      is_boolean(value) ->
-        {:ok, value}
-
-      matches_truthy?(value, rule.truthy) ->
-        {:ok, true}
-
-      matches_falsy?(value, rule.falsy) ->
-        {:ok, false}
-
-      true ->
-        {:error, [error(:boolean, "must be a boolean")]}
+  defp validate_value(value, %Rule{type: :boolean} = rule, convert) do
+    case coerce_boolean(value, rule, convert) do
+      {:ok, bool} -> {:ok, bool}
+      :error -> {:error, [error(:boolean, "must be a boolean")]}
     end
   end
 
-  defp validate_value(value, %Rule{type: :array} = rule) do
+  defp validate_value(value, %Rule{type: :array} = rule, convert) do
     with {:ok, list} <- coerce_array(value, rule.delimiter),
          [] <- array_constraint_errors(list, rule),
-         {:ok, coerced_list} <- validate_array_elements(list, rule.of) do
+         {:ok, coerced_list} <- validate_array_elements(list, rule.of, convert) do
       {:ok, coerced_list}
     else
       {:error, errors} -> {:error, errors}
@@ -145,9 +145,9 @@ defmodule ExJoi.Validator do
     end
   end
 
-  defp validate_value(value, %Rule{type: :object, schema: %Schema{} = schema}) do
+  defp validate_value(value, %Rule{type: :object, schema: %Schema{} = schema}, convert) do
     if is_map(value) do
-      case validate(value, schema) do
+      case validate(value, schema, convert: convert) do
         {:ok, coerced} ->
           {:ok, coerced}
 
@@ -159,11 +159,38 @@ defmodule ExJoi.Validator do
     end
   end
 
-  defp ensure_string(value) when is_binary(value), do: :ok
-  defp ensure_string(_value), do: {:error, [error(:string, "must be a string")]}
+  defp validate_value(value, %Rule{type: :date} = _rule, convert) do
+    case ensure_date(value, convert) do
+      {:ok, datetime} -> {:ok, datetime}
+      :error -> {:error, [error(:date, "must be an ISO8601 date/time")]}
+    end
+  end
 
-  defp ensure_number(value) when is_number(value), do: :ok
-  defp ensure_number(_value), do: {:error, [error(:number, "must be a number")]}
+  defp ensure_string(value, convert) when is_binary(value) do
+    normalized =
+      if convert do
+        value
+        |> String.trim()
+        |> String.replace(~r/\s+/, " ")
+      else
+        value
+      end
+
+    {:ok, normalized}
+  end
+
+  defp ensure_string(_value, _convert), do: {:error, [error(:string, "must be a string")]}
+
+  defp ensure_number(value, _convert) when is_number(value), do: {:ok, value}
+
+  defp ensure_number(value, true) when is_binary(value) do
+    case parse_number_from_string(value) do
+      {:ok, number} -> {:ok, number}
+      :error -> {:error, [error(:number, "must be a number")]}
+    end
+  end
+
+  defp ensure_number(_value, _convert), do: {:error, [error(:number, "must be a number")]}
 
   defp string_constraint_errors(value, %Rule{} = rule) do
     []
@@ -260,14 +287,14 @@ defmodule ExJoi.Validator do
     end)
   end
 
-  defp validate_array_elements(list, nil), do: {:ok, list}
+  defp validate_array_elements(list, nil, _convert), do: {:ok, list}
 
-  defp validate_array_elements(list, %Rule{} = rule) do
+  defp validate_array_elements(list, %Rule{} = rule, convert) do
     {errors, values} =
       list
       |> Enum.with_index()
       |> Enum.reduce({%{}, []}, fn {item, idx}, {err_acc, val_acc} ->
-        case validate_value(item, rule) do
+        case validate_value(item, rule, convert) do
           {:ok, coerced} ->
             {err_acc, [coerced | val_acc]}
 
@@ -282,6 +309,83 @@ defmodule ExJoi.Validator do
       {:error, errors}
     end
   end
+
+  defp parse_number_from_string(value) do
+    trimmed = String.trim(value)
+
+    cond do
+      trimmed == "" ->
+        :error
+
+      true ->
+        with {int_value, ""} <- Integer.parse(trimmed) do
+          {:ok, int_value}
+        else
+          _ ->
+            case Float.parse(trimmed) do
+              {float_value, ""} -> {:ok, float_value}
+              _ -> :error
+            end
+        end
+    end
+  end
+
+  defp coerce_boolean(value, _rule, _convert) when is_boolean(value), do: {:ok, value}
+
+  defp coerce_boolean(value, rule, convert) do
+    truthy_values = rule.truthy || default_truthy(convert)
+    falsy_values = rule.falsy || default_falsy(convert)
+
+    cond do
+      should_coerce_boolean?(truthy_values) && matches_truthy?(value, truthy_values) ->
+        {:ok, true}
+
+      should_coerce_boolean?(falsy_values) && matches_falsy?(value, falsy_values) ->
+        {:ok, false}
+
+      true ->
+        :error
+    end
+  end
+
+  defp should_coerce_boolean?(nil), do: false
+  defp should_coerce_boolean?(_values), do: true
+
+  defp ensure_date(%DateTime{} = value, _convert), do: {:ok, value}
+  defp ensure_date(%NaiveDateTime{} = value, _convert) do
+    case DateTime.from_naive(value, "Etc/UTC") do
+      {:ok, datetime} -> {:ok, datetime}
+      {:error, _} -> :error
+    end
+  end
+
+  defp ensure_date(%Date{} = value, _convert) do
+    case DateTime.new(value, ~T[00:00:00], "Etc/UTC") do
+      {:ok, datetime} -> {:ok, datetime}
+      {:error, _} -> :error
+    end
+  end
+
+  defp ensure_date(value, true) when is_binary(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, datetime, _offset} ->
+        {:ok, datetime}
+
+      {:error, _} ->
+        case NaiveDateTime.from_iso8601(value) do
+          {:ok, naive} -> {:ok, DateTime.from_naive!(naive, "Etc/UTC")}
+          {:error, _} -> :error
+        end
+    end
+  end
+
+  defp ensure_date(_value, _convert), do: :error
+
+  defp default_truthy(true), do: @default_truthy
+  defp default_truthy(_), do: nil
+
+  defp default_falsy(true), do: @default_falsy
+  defp default_falsy(_), do: nil
 
   defp error(code, message, meta \\ %{}) do
     %{code: code, message: message, meta: meta}
