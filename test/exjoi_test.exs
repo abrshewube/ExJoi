@@ -275,5 +275,78 @@ defmodule ExJoiTest do
       assert {:ok, %{start_at: %DateTime{}}} =
                ExJoi.validate(%{start_at: "2025-01-01T00:00:00Z"}, schema, convert: true)
     end
+
+    test "conditional rule enforces admin permissions" do
+      schema =
+        ExJoi.schema(%{
+          role: ExJoi.string(required: true),
+          permissions:
+            ExJoi.when(
+              :role,
+              [
+                is: "admin",
+                then: ExJoi.array(of: ExJoi.string(), min_items: 1, required: true),
+                otherwise: ExJoi.array(of: ExJoi.string())
+              ]
+            )
+        })
+
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{role: "admin"}, schema)
+      assert [%{code: :required}] = errors.permissions
+
+      assert {:error, %{errors: errors}} =
+               ExJoi.validate(%{role: "admin", permissions: []}, schema)
+
+      assert Enum.any?(errors.permissions, &(&1.code == :array_min_items))
+
+      assert {:ok, %{permissions: ["read"]}} =
+               ExJoi.validate(%{role: "admin", permissions: ["read"]}, schema)
+
+      assert {:ok, %{permissions: []}} =
+               ExJoi.validate(%{role: "viewer", permissions: []}, schema)
+    end
+
+    test "conditional rule based on numeric ranges" do
+      schema =
+        ExJoi.schema(%{
+          age: ExJoi.number(required: true),
+          guardian_contact:
+            ExJoi.when(:age, [max: 17, then: ExJoi.string(required: true, min: 5)])
+        })
+
+      assert {:error, %{errors: errors}} =
+               ExJoi.validate(%{age: 16}, schema)
+
+      assert [%{code: :required}] = errors.guardian_contact
+
+      assert {:ok, %{guardian_contact: "mommy"}} =
+               ExJoi.validate(%{age: 16, guardian_contact: "mommy"}, schema)
+
+      assert {:ok, %{}} = ExJoi.validate(%{age: 20}, schema)
+    end
+
+    test "conditional rule supports regex matching" do
+      schema =
+        ExJoi.schema(%{
+          plan: ExJoi.string(required: true),
+          pro_feature_flag:
+            ExJoi.when(
+              :plan,
+              [
+                matches: ~r/^pro/i,
+                then: ExJoi.boolean(required: true),
+                otherwise: ExJoi.boolean()
+              ]
+            )
+        })
+
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{plan: "pro-plus"}, schema)
+      assert [%{code: :required}] = errors.pro_feature_flag
+
+      assert {:ok, %{pro_feature_flag: true}} =
+               ExJoi.validate(%{plan: "pro-plus", pro_feature_flag: true}, schema)
+
+      assert {:ok, %{}} = ExJoi.validate(%{plan: "starter"}, schema)
+    end
   end
 end

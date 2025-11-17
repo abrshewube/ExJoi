@@ -49,6 +49,33 @@ defmodule ExJoi.Validator do
     {:error, format_errors(%{_schema: [error(:invalid_data, "data must be a map")]})}
   end
 
+  defp validate_field(data, field_name, %Rule{type: :conditional} = rule, convert) do
+    active_rule = resolve_conditional_rule(rule.conditional, data)
+    effective_rule = active_rule || rule.conditional[:base]
+    required? =
+      cond do
+        match?(%Rule{}, effective_rule) and effective_rule.required -> true
+        true -> rule.required
+      end
+
+    case fetch_field_value(data, field_name) do
+      :missing when required? ->
+        {:error, [error(:required, "is required")]}
+
+      :missing ->
+        {:ok, :missing}
+
+      {:ok, key, value} ->
+        if match?(%Rule{}, effective_rule) do
+          with {:ok, coerced} <- validate_value(value, effective_rule, convert, data) do
+            {:ok, {key, coerced}}
+          end
+        else
+          {:ok, {key, value}}
+        end
+    end
+  end
+
   defp validate_field(data, field_name, %Rule{} = rule, convert) do
     case fetch_field_value(data, field_name) do
       :missing when rule.required ->
@@ -58,7 +85,7 @@ defmodule ExJoi.Validator do
         {:ok, :missing}
 
       {:ok, key, value} ->
-        case validate_value(value, rule, convert) do
+        case validate_value(value, rule, convert, data) do
           {:ok, coerced} ->
             {:ok, {key, coerced}}
 
@@ -107,7 +134,7 @@ defmodule ExJoi.Validator do
     end
   end
 
-  defp validate_value(value, %Rule{type: :string} = rule, convert) do
+  defp validate_value(value, %Rule{type: :string} = rule, convert, _data) do
     with {:ok, normalized} <- ensure_string(value, convert),
          [] <- string_constraint_errors(normalized, rule) do
       {:ok, normalized}
@@ -117,7 +144,7 @@ defmodule ExJoi.Validator do
     end
   end
 
-  defp validate_value(value, %Rule{type: :number} = rule, convert) do
+  defp validate_value(value, %Rule{type: :number} = rule, convert, _data) do
     with {:ok, number} <- ensure_number(value, convert),
          [] <- number_constraint_errors(number, rule) do
       {:ok, number}
@@ -127,17 +154,17 @@ defmodule ExJoi.Validator do
     end
   end
 
-  defp validate_value(value, %Rule{type: :boolean} = rule, convert) do
+  defp validate_value(value, %Rule{type: :boolean} = rule, convert, _data) do
     case coerce_boolean(value, rule, convert) do
       {:ok, bool} -> {:ok, bool}
       :error -> {:error, [error(:boolean, "must be a boolean")]}
     end
   end
 
-  defp validate_value(value, %Rule{type: :array} = rule, convert) do
+  defp validate_value(value, %Rule{type: :array} = rule, convert, data) do
     with {:ok, list} <- coerce_array(value, rule.delimiter),
          [] <- array_constraint_errors(list, rule),
-         {:ok, coerced_list} <- validate_array_elements(list, rule.of, convert) do
+         {:ok, coerced_list} <- validate_array_elements(list, rule.of, convert, data) do
       {:ok, coerced_list}
     else
       {:error, errors} -> {:error, errors}
@@ -145,7 +172,7 @@ defmodule ExJoi.Validator do
     end
   end
 
-  defp validate_value(value, %Rule{type: :object, schema: %Schema{} = schema}, convert) do
+  defp validate_value(value, %Rule{type: :object, schema: %Schema{} = schema}, convert, _data) do
     if is_map(value) do
       case validate(value, schema, convert: convert) do
         {:ok, coerced} ->
@@ -159,12 +186,25 @@ defmodule ExJoi.Validator do
     end
   end
 
-  defp validate_value(value, %Rule{type: :date} = _rule, convert) do
+  defp validate_value(value, %Rule{type: :date} = _rule, convert, _data) do
     case ensure_date(value, convert) do
       {:ok, datetime} -> {:ok, datetime}
       :error -> {:error, [error(:date, "must be an ISO8601 date/time")]}
     end
   end
+
+  defp validate_value(value, %Rule{type: :conditional} = rule, convert, data) do
+    case resolve_conditional_rule(rule.conditional, data) || rule.conditional[:base] do
+      %Rule{} = effective_rule ->
+        validate_value(value, effective_rule, convert, data)
+
+      _ ->
+        {:ok, value}
+    end
+  end
+
+  defp validate_value(value, nil, _convert, _data), do: {:ok, value}
+  defp validate_value(value, %Rule{}, _convert, _data), do: {:ok, value}
 
   defp ensure_string(value, convert) when is_binary(value) do
     normalized =
@@ -287,14 +327,14 @@ defmodule ExJoi.Validator do
     end)
   end
 
-  defp validate_array_elements(list, nil, _convert), do: {:ok, list}
+  defp validate_array_elements(list, nil, _convert, _data), do: {:ok, list}
 
-  defp validate_array_elements(list, %Rule{} = rule, convert) do
+  defp validate_array_elements(list, %Rule{} = rule, convert, data) do
     {errors, values} =
       list
       |> Enum.with_index()
       |> Enum.reduce({%{}, []}, fn {item, idx}, {err_acc, val_acc} ->
-        case validate_value(item, rule, convert) do
+        case validate_value(item, rule, convert, data) do
           {:ok, coerced} ->
             {err_acc, [coerced | val_acc]}
 
@@ -307,6 +347,18 @@ defmodule ExJoi.Validator do
       {:ok, Enum.reverse(values)}
     else
       {:error, errors}
+    end
+  end
+
+  defp resolve_conditional_rule(nil, _data), do: nil
+
+  defp resolve_conditional_rule(%{field: field, checks: checks, then: then_rule, otherwise: otherwise}, data) do
+    compare_value = get_condition_value(data, field)
+
+    if condition_met?(compare_value, checks) do
+      then_rule
+    else
+      otherwise
     end
   end
 
@@ -386,6 +438,57 @@ defmodule ExJoi.Validator do
 
   defp default_falsy(true), do: @default_falsy
   defp default_falsy(_), do: nil
+
+  defp get_condition_value(data, field) when is_atom(field) do
+    Map.get(data, field) || Map.get(data, Atom.to_string(field))
+  end
+
+  defp get_condition_value(data, field) when is_binary(field) do
+    Map.get(data, field) ||
+      case safe_existing_atom(field) do
+        nil -> nil
+        atom_key -> Map.get(data, atom_key)
+      end
+  end
+
+  defp safe_existing_atom(value) do
+    try do
+      String.to_existing_atom(value)
+  rescue
+      ArgumentError -> nil
+    end
+  end
+
+  defp condition_met?(_value, nil), do: false
+
+  defp condition_met?(value, checks) do
+    check_is(value, checks.is) &&
+      check_in(value, checks.in) &&
+      check_matches(value, checks.matches) &&
+      check_min(value, checks.min) &&
+      check_max(value, checks.max)
+  end
+
+  defp check_is(_value, nil), do: true
+  defp check_is(value, expected), do: value == expected
+
+  defp check_in(_value, nil), do: true
+  defp check_in(value, list) when is_list(list), do: Enum.member?(list, value)
+  defp check_in(value, %Range{} = range), do: value in range
+  defp check_in(_value, _other), do: false
+
+  defp check_matches(_value, nil), do: true
+  defp check_matches(value, %Regex{} = regex) when is_binary(value), do: Regex.match?(regex, value)
+  defp check_matches(_value, %Regex{}), do: false
+  defp check_matches(_value, _), do: true
+
+  defp check_min(_value, nil), do: true
+  defp check_min(value, min) when is_number(value), do: value >= min
+  defp check_min(_value, _min), do: false
+
+  defp check_max(_value, nil), do: true
+  defp check_max(value, max) when is_number(value), do: value <= max
+  defp check_max(_value, _max), do: false
 
   defp error(code, message, meta \\ %{}) do
     %{code: code, message: message, meta: meta}
