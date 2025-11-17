@@ -9,7 +9,7 @@ ExJoi brings a Joi-inspired DSL to Elixir, letting you describe data rules once 
 ## Quick Links
 
 - GitHub · https://github.com/abrshewube/ExJoi
-- HexDocs (v0.6.0) · https://hexdocs.pm/exjoi/0.6.0
+- HexDocs (v0.7.0) · https://hexdocs.pm/exjoi/0.7.0
 - Hex Package · https://hex.pm/packages/exjoi
 
 ---
@@ -34,7 +34,7 @@ Add the dependency and you’re ready to validate:
 ```elixir
 defp deps do
   [
-    {:exjoi, "~> 0.6.0"}
+    {:exjoi, "~> 0.7.0"}
   ]
 end
 ```
@@ -61,7 +61,8 @@ schema =
         ExJoi.when(
           :role,
           is: "admin",
-          then: ExJoi.array(of: ExJoi.string(), min_items: 1, required: true)
+          then: ExJoi.array(of: ExJoi.string(), min_items: 1, required: true),
+          otherwise: ExJoi.array(of: ExJoi.string())
         )
     },
     defaults: %{active: true, stats: 0}
@@ -93,6 +94,28 @@ end
 #    "user" => %{"email" => "maya@example.com", "name" => "Maya"}
 #  }}
 ```
+
+## Custom Validators & Extensions
+
+```elixir
+# Register a custom type
+ExJoi.extend(:uuid, fn value, _ctx ->
+  case Regex.match?(~r/^[0-9a-f-]{32}$/i, value) do
+    true -> {:ok, String.downcase(value)}
+    false -> {:error, [%{code: :uuid, message: "must be a UUID"}]}
+  end
+end)
+
+# Use it inside schemas
+schema =
+  ExJoi.schema(%{
+    id: ExJoi.custom(:uuid, required: true)
+  })
+```
+
+- Provide a module instead of a function by implementing `ExJoi.CustomValidator`.
+- Override the error payload globally: `ExJoi.configure(error_builder: &MyErrors.format/1)`.
+- Reset extensions (e.g., in tests) with `ExJoi.Config.reset!()`.
 
 ---
 
@@ -224,13 +247,24 @@ schema =
   })
 ```
 
+### Custom UUID type
+
+```elixir
+ExJoi.extend(:uuid, MyApp.UUIDValidator)
+
+ExJoi.schema(%{
+  session_id: ExJoi.custom(:uuid, required: true)
+})
+```
+
 ---
 
 ## Roadmap Snapshot
 
 | Version | Status  | Highlights |
 | ------- | ------- | ---------- |
-| 6       | Current | Conditional rules (`ExJoi.when/3`) with field/value/range/regex checks |
+| 7       | Current | Custom validators/plugins, `ExJoi.extend/2`, error builder overrides |
+| 6       | Shipped | Conditional rules (`ExJoi.when/3`) with field/value/range/regex checks |
 | 5       | Shipped | Convert mode (numbers, booleans, dates, strings), ISO date type |
 | 4       | Shipped | Array validation (min/max, unique, delimiter coercion, per-item rules) |
 | 3       | Shipped | Object schemas, nested validation, defaulting |

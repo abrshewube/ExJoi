@@ -18,7 +18,7 @@ defmodule ExJoi do
       # => {:error, %{name: ["is required"]}}
   """
 
-  alias ExJoi.{Rule, Schema, Validator}
+  alias ExJoi.{Config, Rule, Schema, Validator}
 
   @default_truthy [true, "true", "True", "TRUE", "1", 1, "yes", "Yes", "YES", "on", "On", "ON"]
   @default_falsy [false, "false", "False", "FALSE", "0", 0, "no", "No", "NO", "off", "Off", "OFF"]
@@ -253,6 +253,17 @@ defmodule ExJoi do
   end
 
   @doc """
+  Creates a custom validator rule for a previously registered type.
+  """
+  def custom(type_name, opts \\ []) when is_atom(type_name) do
+    %Rule{
+      type: {:custom, type_name},
+      required: Keyword.get(opts, :required, false),
+      custom_opts: opts
+    }
+  end
+
+  @doc """
   Validates data against a schema.
 
   Returns `{:ok, validated_data}` if validation passes, or `{:error, errors}` if it fails.
@@ -270,5 +281,30 @@ defmodule ExJoi do
   """
   def validate(data, %Schema{} = schema, opts \\ []) do
     Validator.validate(data, schema, opts)
+  end
+
+  @doc """
+  Registers a custom validator under the provided `type_name`.
+
+  The validator can be either a function (`fn value -> ... end`) or a module that
+  implements `ExJoi.CustomValidator`.
+  """
+  def extend(type_name, validator) when is_atom(type_name) do
+    Config.register_type(type_name, validator)
+  end
+
+  @doc """
+  Configures runtime options for ExJoi.
+
+  Currently supported options:
+
+    * `:error_builder` - a function that receives the error map and returns any structure.
+  """
+  def configure(opts) when is_list(opts) do
+    if builder = Keyword.get(opts, :error_builder) do
+      Config.set_error_builder(builder)
+    end
+
+    :ok
   end
 end
