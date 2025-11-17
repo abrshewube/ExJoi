@@ -236,5 +236,44 @@ defmodule ExJoiTest do
       assert {:error, %{errors: errors}} = ExJoi.validate(%{friends: "Ana;Li"}, schema)
       assert [%{code: :string_min}] = errors.friends[1]
     end
+
+    test "number conversion requires convert option" do
+      schema = ExJoi.schema(%{age: ExJoi.number()})
+
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{age: "42"}, schema)
+      assert [%{code: :number}] = errors.age
+
+      assert {:ok, %{age: 42}} = ExJoi.validate(%{age: "42"}, schema, convert: true)
+      assert {:ok, %{age: 3.14}} = ExJoi.validate(%{age: "3.14"}, schema, convert: true)
+    end
+
+    test "boolean convert mode handles default truthy/falsy lists" do
+      schema = ExJoi.schema(%{active: ExJoi.boolean()})
+
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{active: "true"}, schema)
+      assert [%{code: :boolean}] = errors.active
+
+      assert {:ok, %{active: true}} = ExJoi.validate(%{active: "true"}, schema, convert: true)
+      assert {:ok, %{active: false}} = ExJoi.validate(%{active: "false"}, schema, convert: true)
+    end
+
+    test "string normalization trims and squishes whitespace in convert mode" do
+      schema = ExJoi.schema(%{name: ExJoi.string()})
+
+      assert {:ok, %{name: "  padded  "}} = ExJoi.validate(%{name: "  padded  "}, schema)
+
+      assert {:ok, %{name: "padded text"}} =
+               ExJoi.validate(%{name: "  padded   text  "}, schema, convert: true)
+    end
+
+    test "date validation parses ISO8601 strings when convert enabled" do
+      schema = ExJoi.schema(%{start_at: ExJoi.date(required: true)})
+
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{start_at: "2025-01-01T00:00:00Z"}, schema)
+      assert [%{code: :date}] = errors.start_at
+
+      assert {:ok, %{start_at: %DateTime{}}} =
+               ExJoi.validate(%{start_at: "2025-01-01T00:00:00Z"}, schema, convert: true)
+    end
   end
 end

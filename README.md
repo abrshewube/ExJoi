@@ -9,15 +9,16 @@ ExJoi brings a Joi-inspired DSL to Elixir, letting you describe data rules once 
 ## Quick Links
 
 - GitHub · https://github.com/abrshewube/ExJoi
-- HexDocs (v0.4.0) · https://hexdocs.pm/exjoi/0.4.0
+- HexDocs (v0.5.0) · https://hexdocs.pm/exjoi/0.5.0
 - Hex Package · https://hex.pm/packages/exjoi
 
 ---
 
 ## Highlights
 
-- **Schema-first DSL** – Compose readable validation rules with `ExJoi.string/1`, `number/1`, `boolean/1`, `object/1`, and `array/1`.
+- **Schema-first DSL** – Compose readable validation rules with `ExJoi.string/1`, `number/1`, `boolean/1`, `object/1`, `array/1`, and `date/1`.
 - **Advanced constraints** – Min/max lengths, regex patterns, email format checks, integer guards, truthy/falsy coercion, and per-item array validation.
+- **Convert mode** – Toggle `convert: true` to coerce numbers, booleans, dates, strings, and arrays like Joi’s “convert” flow.
 - **Nested objects & arrays** – Recursively validate deep maps and lists with rich, nested error payloads.
 - **Smart defaults** – Provide top-level defaults that merge into incoming params before validation.
 - **Actionable errors** – Structured responses include machine-friendly codes, friendly messages, and metadata.
@@ -32,7 +33,7 @@ Add the dependency and you’re ready to validate:
 ```elixir
 defp deps do
   [
-    {:exjoi, "~> 0.4.0"}
+    {:exjoi, "~> 0.5.0"}
   ]
 end
 ```
@@ -52,17 +53,21 @@ schema =
         }),
       stats: ExJoi.number(integer: true, min: 0),
       friends: ExJoi.array(of: ExJoi.string(min: 3), min_items: 1, unique: true),
-      active: ExJoi.boolean(truthy: ["Y", "yes"], falsy: ["N", "no"])
+      active: ExJoi.boolean(),
+      onboarded_at: ExJoi.date(required: true)
     },
     defaults: %{active: true, stats: 0}
   )
 
 params = %{
   "user" => %{"name" => "Maya", "email" => "maya@example.com"},
-  "friends" => "Ana,Bea,Clara"
+  "friends" => "Ana,Bea,Clara",
+  "active" => "false",
+  "stats" => "42",
+  "onboarded_at" => "2025-01-01T12:30:00Z"
 }
 
-case ExJoi.validate(params, schema) do
+case ExJoi.validate(params, schema, convert: true) do
   {:ok, normalized} ->
     IO.inspect(normalized)
 
@@ -72,9 +77,10 @@ end
 
 # {:ok,
 #  %{
-#    "active" => true,
+#    "active" => false,
 #    "friends" => ["Ana", "Bea", "Clara"],
-#    "stats" => 0,
+#    "onboarded_at" => ~U[2025-01-01 12:30:00Z],
+#    "stats" => 42,
 #    "user" => %{"email" => "maya@example.com", "name" => "Maya"}
 #  }}
 ```
@@ -90,6 +96,7 @@ end
 | `ExJoi.boolean` | `:required`, `:truthy`, `:falsy` (lists coerced to `true` / `false`)                        |
 | `ExJoi.object`  | `:required` (accepts nested map or `%ExJoi.Schema{}`)                                       |
 | `ExJoi.array`   | `:required`, `:of`, `:min_items`/`:max_items` (aliases `:min`/`:max`), `:unique`, `:delimiter` |
+| `ExJoi.date`    | `:required`                                                                                 |
 
 ```elixir
 ExJoi.string(required: true, min: 3, max: 32, pattern: ~r/^[a-z0-9_]+$/)
@@ -174,16 +181,33 @@ ExJoi.schema(%{
 })
 ```
 
+### Convert mode for params
+
+```elixir
+schema =
+  ExJoi.schema(%{
+    age: ExJoi.number(min: 18),
+    active: ExJoi.boolean(),
+    onboarded_at: ExJoi.date()
+  })
+
+params = %{"age" => "42", "active" => "true", "onboarded_at" => "2025-01-01T00:00:00Z"}
+
+ExJoi.validate(params, schema, convert: true)
+```
+
+When `convert: false` (default), `"42"` and `"true"` would raise type errors.
+
 ---
 
 ## Roadmap Snapshot
 
 | Version | Status  | Highlights |
 | ------- | ------- | ---------- |
-| 4       | Current | Array validation (min/max, unique, delimiter coercion, per-item rules) |
+| 5       | Current | Convert mode (numbers, booleans, dates, strings), ISO date type |
+| 4       | Shipped | Array validation (min/max, unique, delimiter coercion, per-item rules) |
 | 3       | Shipped | Object schemas, nested validation, defaulting |
 | 2       | Shipped | Advanced constraints, truthy/falsy coercion, structured errors |
-| 5       | Planned | Type coercion / casting |
 | 6       | Planned | Conditional rules |
 | 7       | Planned | Custom validators & plugin system |
 | 8       | Planned | Full error tree & custom error builder |
