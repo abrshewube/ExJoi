@@ -10,11 +10,25 @@ defmodule ExJoi.Rule do
 
   defstruct [
     :type,
-    required: false
+    required: false,
+    min: nil,
+    max: nil,
+    pattern: nil,
+    email: false,
+    integer: false,
+    truthy: nil,
+    falsy: nil
   ]
 
   @type t :: %__MODULE__{
           type: :string | :number | :boolean,
-          required: boolean()
+          required: boolean(),
+          min: integer() | float() | nil,
+          max: integer() | float() | nil,
+          pattern: Regex.t() | nil,
+          email: boolean(),
+          integer: boolean(),
+          truthy: list() | nil,
+          falsy: list() | nil
         }
 end

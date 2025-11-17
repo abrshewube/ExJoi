@@ -20,6 +20,9 @@ defmodule ExJoi do
 
   alias ExJoi.{Rule, Schema, Validator}
 
+  @default_truthy [true, "true", "True", "TRUE", "1", 1, "yes", "Yes", "YES", "on", "On", "ON"]
+  @default_falsy [false, "false", "False", "FALSE", "0", 0, "no", "No", "NO", "off", "Off", "OFF"]
+
   @doc """
   Creates a validation schema from a map of field rules.
 
@@ -39,17 +42,27 @@ defmodule ExJoi do
 
   ## Options
 
-    * `:required` - If true, the field must be present (default: false)
+    * `:required` - Ensures the value is present.
+    * `:min` - Minimum string length.
+    * `:max` - Maximum string length.
+    * `:pattern` - A `Regex` the string must match.
+    * `:email` - When true, applies a basic email format check.
 
   ## Examples
 
       ExJoi.string()
-      ExJoi.string(required: true)
+      ExJoi.string(required: true, min: 3, max: 50)
+      ExJoi.string(pattern: ~r/^[A-Z]+$/)
+      ExJoi.string(email: true)
   """
   def string(opts \\ []) do
     %Rule{
       type: :string,
-      required: Keyword.get(opts, :required, false)
+      required: Keyword.get(opts, :required, false),
+      min: Keyword.get(opts, :min),
+      max: Keyword.get(opts, :max),
+      pattern: Keyword.get(opts, :pattern),
+      email: Keyword.get(opts, :email, false)
     }
   end
 
@@ -58,17 +71,23 @@ defmodule ExJoi do
 
   ## Options
 
-    * `:required` - If true, the field must be present (default: false)
+    * `:required` - Ensures the value is present.
+    * `:min` / `:max` - Numeric bounds (inclusive).
+    * `:integer` - When true, only integers are accepted.
 
   ## Examples
 
       ExJoi.number()
-      ExJoi.number(required: true)
+      ExJoi.number(required: true, min: 18, max: 65)
+      ExJoi.number(integer: true)
   """
   def number(opts \\ []) do
     %Rule{
       type: :number,
-      required: Keyword.get(opts, :required, false)
+      required: Keyword.get(opts, :required, false),
+      min: Keyword.get(opts, :min),
+      max: Keyword.get(opts, :max),
+      integer: Keyword.get(opts, :integer, false)
     }
   end
 
@@ -77,17 +96,24 @@ defmodule ExJoi do
 
   ## Options
 
-    * `:required` - If true, the field must be present (default: false)
+    * `:required` - Ensures the value is present.
+    * `:truthy` / `:falsy` - Lists of values that should coerce to `true`/`false`.
+
+  The default truthy values are `#{inspect(@default_truthy)}` and falsy values are
+  `#{inspect(@default_falsy)}`.
 
   ## Examples
 
       ExJoi.boolean()
       ExJoi.boolean(required: true)
+      ExJoi.boolean(truthy: ["Y"], falsy: ["N"])
   """
   def boolean(opts \\ []) do
     %Rule{
       type: :boolean,
-      required: Keyword.get(opts, :required, false)
+      required: Keyword.get(opts, :required, false),
+      truthy: Keyword.get(opts, :truthy, @default_truthy),
+      falsy: Keyword.get(opts, :falsy, @default_falsy)
     }
   end
 
