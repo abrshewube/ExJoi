@@ -503,18 +503,28 @@ defmodule ExJoi.Validator do
   defp check_max(value, max) when is_number(value), do: value <= max
   defp check_max(_value, _max), do: false
 
-  defp error(code, message, meta \\ %{}) do
+  defp error(code, default_message, meta \\ %{}) do
+    translator = Config.message_translator()
+    message = translator.(code, default_message, meta)
     %{code: code, message: message, meta: meta}
   end
 
   defp format_errors(errors) do
-    Config.error_builder().(errors)
+    flat = flatten_errors(errors)
+    result = Config.error_builder().(errors)
+
+    if is_map(result) do
+      Map.put_new(result, :errors_flat, flat)
+    else
+      result
+    end
   end
 
   def default_error_builder(errors) do
     %{
       message: "Validation failed",
-      errors: errors
+      errors: errors,
+      errors_flat: flatten_errors(errors)
     }
   end
 
@@ -565,4 +575,37 @@ defmodule ExJoi.Validator do
       _ -> {:error, [error(:custom_type, "invalid custom validator response")]}
     end
   end
+
+  @doc false
+  def flatten_errors(errors) when is_map(errors) do
+    Enum.reduce(errors, %{}, fn {key, value}, acc ->
+      merge_flat(acc, [key], value)
+    end)
+  end
+
+  defp merge_flat(acc, path, value) when is_list(value) do
+    path_key = path_to_string(path)
+    Map.update(acc, path_key, Enum.map(value, & &1.message), fn existing ->
+      existing ++ Enum.map(value, & &1.message)
+    end)
+  end
+
+  defp merge_flat(acc, path, value) when is_map(value) do
+    Enum.reduce(value, acc, fn {k, v}, inner_acc ->
+      merge_flat(inner_acc, path ++ [k], v)
+    end)
+  end
+
+  defp merge_flat(acc, _path, _value), do: acc
+
+  defp path_to_string(path_segments) do
+    path_segments
+    |> Enum.map(&segment_to_string/1)
+    |> Enum.join(".")
+  end
+
+  defp segment_to_string(segment) when is_atom(segment), do: Atom.to_string(segment)
+  defp segment_to_string(segment) when is_integer(segment), do: Integer.to_string(segment)
+  defp segment_to_string(segment) when is_binary(segment), do: segment
+  defp segment_to_string(other), do: inspect(other)
 end

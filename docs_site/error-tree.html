@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ExJoi · Error Tree</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="bg-slate-950 text-slate-100 antialiased">
+    <div id="common-header"></div>
+    <div class="flex min-h-screen pt-16">
+      <div id="common-sidebar"></div>
+
+      <main class="flex-1 px-6 py-10 lg:px-16 space-y-12 pb-16">
+        <section class="docs-section">
+          <p class="hero-badge">Guide</p>
+          <h1 class="section-title text-4xl">Full Error Tree &amp; Translators</h1>
+          <p class="text-slate-300 leading-relaxed">
+            Version 8 introduces a flattened error tree (<code>errors_flat</code>) plus translator hooks so you can ship localized, path-aware error messages that mirror Joi's format.
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">API Reference</p>
+            <h2 class="section-title">Error Handling Functions</h2>
+            <p class="text-slate-400 mt-2">Complete reference for error structure and configuration.</p>
+          </div>
+
+          <div class="space-y-8">
+            <div class="feature-card">
+              <h3>Error Structure</h3>
+              <p class="text-slate-400 mb-4">When validation fails, <code>ExJoi.validate/3</code> returns an error map with the following structure:</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Error Map Fields</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:message</code> (string) - Default: <code>"Validation failed"</code></li>
+                    <li><code>:errors</code> (map) - Nested error map with field paths as keys</li>
+                    <li><code>:errors_flat</code> (map) - Flattened error map with dotted paths as keys (e.g., <code>"user.email"</code>)</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Individual Error Structure</p>
+                  <p class="text-slate-400 text-sm mb-2">Each error in the <code>:errors</code> map is a list of error maps, each containing:</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:code</code> (atom) - Error code (e.g., <code>:required</code>, <code>:string_email</code>, <code>:number_min</code>)</li>
+                    <li><code>:message</code> (string) - Human-readable error message (may be translated)</li>
+                    <li><code>:meta</code> (map, optional) - Additional metadata (e.g., <code>%{min: 3}</code>, <code>%{max: 100}</code>)</li>
+                  </ul>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Example Error Structure</span>
+                    <button class="copy-btn" data-clipboard-target="#api-error-structure">Copy</button>
+                  </div>
+                  <pre><code id="api-error-structure">{:error,
+ %{
+   message: "Validation failed",
+   errors: %{
+     user: %{
+       email: [
+         %{code: :string_email, message: "must be a valid email", meta: %{}}
+       ]
+     },
+     age: [
+       %{code: :number_min, message: "must be at least 18", meta: %{min: 18}}
+     ]
+   },
+   errors_flat: %{
+     "user.email" => ["must be a valid email"],
+     "age" => ["must be at least 18"]
+   }
+ }}</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3><code>ExJoi.configure/1</code> - Error Builder</h3>
+              <p class="text-slate-400 mb-4">Override the default error structure by providing a custom error builder function.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Error Builder Function</p>
+                  <p class="text-slate-400 text-sm mb-2">Function signature:</p>
+                  <div class="code-card mt-2">
+                    <pre><code>fn errors :: map() -> any()</code></pre>
+                  </div>
+                  <p class="text-slate-400 text-sm mt-2">Receives the nested error map and returns any structure you want.</p>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Example</span>
+                    <button class="copy-btn" data-clipboard-target="#api-error-builder">Copy</button>
+                  </div>
+                  <pre><code id="api-error-builder">ExJoi.configure(
+  error_builder: fn errors ->
+    %{
+      status: "invalid_params",
+      errors: errors,
+      errors_flat: ExJoi.Validator.flatten_errors(errors)
+    }
+  end
+)</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3><code>ExJoi.configure/1</code> - Message Translator</h3>
+              <p class="text-slate-400 mb-4">Translate error messages based on error codes and metadata.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Message Translator Function</p>
+                  <p class="text-slate-400 text-sm mb-2">Function signature:</p>
+                  <div class="code-card mt-2">
+                    <pre><code>fn code :: atom(), default :: String.t(), meta :: map() -> String.t()</code></pre>
+                  </div>
+                  <p class="text-slate-400 text-sm mt-2">Receives error code, default message, and metadata. Returns the translated message.</p>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Common Error Codes</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:required</code> - Field is required</li>
+                    <li><code>:string_min</code> - String too short</li>
+                    <li><code>:string_max</code> - String too long</li>
+                    <li><code>:string_email</code> - Invalid email format</li>
+                    <li><code>:number_min</code> - Number too small</li>
+                    <li><code>:number_max</code> - Number too large</li>
+                    <li><code>:number_integer</code> - Must be an integer</li>
+                    <li><code>:array_min_items</code> - Array too short</li>
+                    <li><code>:array_max_items</code> - Array too long</li>
+                    <li><code>:array_unique</code> - Array contains duplicates</li>
+                  </ul>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Example</span>
+                    <button class="copy-btn" data-clipboard-target="#api-message-translator">Copy</button>
+                  </div>
+                  <pre><code id="api-message-translator">ExJoi.configure(
+  message_translator: fn code, default, meta ->
+    case code do
+      :required -> "es requerido"
+      :string_email -> "debe ser un email válido"
+      :string_min -> "debe tener al menos #{meta[:min]} caracteres"
+      :number_min -> "debe ser al menos #{meta[:min]}"
+      _ -> default
+    end
+  end
+)</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Structure</p>
+            <h2 class="section-title">Nested map + flattened map</h2>
+          </div>
+          <div class="code-card">
+            <div class="code-header">
+              <span>Payload</span>
+              <button class="copy-btn" data-clipboard-target="#et-structure">Copy</button>
+            </div>
+            <pre><code id="et-structure">{:error,
+ %{
+   message: "Validation failed",
+   errors: %{
+     user: %{
+       email: [
+         %{code: :string_email, message: "must be a valid email"}
+       ]
+     },
+     permissions: %{
+       0 => [%{code: :string_min, message: "must be at least 3 characters"}]
+     }
+   },
+   errors_flat: %{
+     "user.email" => ["must be a valid email"],
+     "permissions.0" => ["must be at least 3 characters"]
+   }
+ }}</code></pre>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Translators</p>
+            <h2 class="section-title">Customize copy globally</h2>
+          </div>
+          <div class="code-card">
+            <div class="code-header">
+              <span>configure/1</span>
+              <button class="copy-btn" data-clipboard-target="#et-translator">Copy</button>
+            </div>
+            <pre><code id="et-translator">ExJoi.configure(
+  message_translator: fn
+    :string_email, _default, _meta -> dgettext("errors", "please provide a valid email")
+    :required, _default, %{field: field} -> "#{field} es requerido"
+    _code, default, _meta -> default
+  end
+)</code></pre>
+          </div>
+          <p class="text-slate-400">
+            Translators receive the error code, the default message, and any metadata (like <code>%{min: 3}</code>). Combine this with Gettext or your own dictionaries.
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Custom builder</p>
+            <h2 class="section-title">Shape the envelope for your API</h2>
+          </div>
+          <div class="code-card">
+            <div class="code-header">
+              <span>error_builder</span>
+              <button class="copy-btn" data-clipboard-target="#et-builder">Copy</button>
+            </div>
+            <pre><code id="et-builder">ExJoi.configure(
+  error_builder: fn errors ->
+    %{
+      status: 422,
+      reason: "invalid_parameters",
+      errors: errors,
+      errors_flat: ExJoi.Validator.flatten_errors(errors)
+    }
+  end
+)</code></pre>
+          </div>
+          <p class="text-slate-400">
+            Builders run at the end of validation, after translators have executed. That means your HTTP layer always sees the exact structure defined here, regardless of how schemas evolve.
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Error structure deep dive</p>
+            <h2 class="section-title">Understanding the error format</h2>
+            <p class="text-slate-400 mt-2">ExJoi provides both nested and flattened error structures for different use cases.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="feature-card">
+              <h3>Nested Errors (<code>errors</code>)</h3>
+              <p class="text-slate-400">The nested structure mirrors your data structure, making it easy to map errors back to form fields.</p>
+              <div class="code-card mt-4">
+                <div class="code-header">
+                  <span>Example</span>
+                  <button class="copy-btn" data-clipboard-target="#et-nested">Copy</button>
+                </div>
+                <pre><code id="et-nested">{:error,
+ %{
+   message: "Validation failed",
+   errors: %{
+     user: %{
+       email: [
+         %{code: :string_email, message: "must be a valid email"},
+         %{code: :string_max, message: "must be at most 255 characters", meta: %{max: 255}}
+       ],
+       profile: %{
+         age: [%{code: :number_min, message: "must be ≥ 18", meta: %{min: 18}}]
+       }
+     },
+     permissions: %{
+       0 => [%{code: :string_min, message: "must be at least 3 characters", meta: %{min: 3}}],
+       2 => [%{code: :string_min, message: "must be at least 3 characters", meta: %{min: 3}}]
+     }
+   }
+ }}</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>Flattened Errors (<code>errors_flat</code>)</h3>
+              <p class="text-slate-400">The flattened structure uses dotted paths, perfect for frontend frameworks and API responses.</p>
+              <div class="code-card mt-4">
+                <div class="code-header">
+                  <span>Example</span>
+                  <button class="copy-btn" data-clipboard-target="#et-flat">Copy</button>
+                </div>
+                <pre><code id="et-flat">{:error,
+ %{
+   message: "Validation failed",
+   errors_flat: %{
+     "user.email" => [
+       "must be a valid email",
+       "must be at most 255 characters"
+     ],
+     "user.profile.age" => ["must be ≥ 18"],
+     "permissions.0" => ["must be at least 3 characters"],
+     "permissions.2" => ["must be at least 3 characters"]
+   }
+ }}</code></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Using errors in your app</p>
+            <h2 class="section-title">Integration patterns</h2>
+            <p class="text-slate-400 mt-2">See how to use ExJoi errors in Phoenix controllers, LiveView, and API responses.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="code-card">
+              <div class="code-header">
+                <span>Phoenix Controller</span>
+                <button class="copy-btn" data-clipboard-target="#et-controller">Copy</button>
+              </div>
+              <pre><code id="et-controller">defmodule MyAppWeb.UserController do
+  use MyAppWeb, :controller
+
+  def create(conn, params) do
+    case ExJoi.validate(params, UserSchema.schema(), convert: true) do
+      {:ok, normalized} ->
+        case Users.create(normalized) do
+          {:ok, user} ->
+            json(conn, %{data: user})
+          
+          {:error, changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{errors: format_changeset_errors(changeset)})
+        end
+      
+      {:error, %{errors_flat: errors}} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: errors})
+    end
+  end
+end</code></pre>
+            </div>
+
+            <div class="code-card">
+              <div class="code-header">
+                <span>Phoenix LiveView</span>
+                <button class="copy-btn" data-clipboard-target="#et-liveview">Copy</button>
+              </div>
+              <pre><code id="et-liveview">defmodule MyAppWeb.UserLive.Form do
+  use MyAppWeb, :live_view
+
+  def handle_event("validate", %{"user" => params}, socket) do
+    case ExJoi.validate(params, UserSchema.schema(), convert: true) do
+      {:ok, _normalized} ->
+        {:noreply, assign(socket, :form_errors, %{})}
+      
+      {:error, %{errors_flat: errors}} ->
+        {:noreply, assign(socket, :form_errors, errors)}
+    end
+  end
+
+  def render(assigns) do
+    ~H"""
+    <form phx-submit="save" phx-change="validate">
+      <input name="user[email]" value={@user.email} />
+      <%= if @form_errors["user.email"] do %>
+        <div class="error">
+          <%= Enum.join(@form_errors["user.email"], ", ") %>
+        </div>
+      <% end %>
+    </form>
+    """
+  end
+end</code></pre>
+            </div>
+
+            <div class="code-card">
+              <div class="code-header">
+                <span>React/JavaScript</span>
+                <button class="copy-btn" data-clipboard-target="#et-react">Copy</button>
+              </div>
+              <pre><code id="et-react">// API response
+const response = await fetch('/api/users', {
+  method: 'POST',
+  body: JSON.stringify(userData)
+});
+
+const result = await response.json();
+
+if (result.errors) {
+  // errors_flat format
+  Object.entries(result.errors).forEach(([field, messages]) => {
+    const fieldElement = document.querySelector(`[name="${field}"]`);
+    if (fieldElement) {
+      fieldElement.classList.add('error');
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'error-message';
+      errorDiv.textContent = messages.join(', ');
+      fieldElement.parentNode.appendChild(errorDiv);
+    }
+  });
+}
+
+// Or with React
+{Object.entries(errors).map(([field, messages]) => (
+  <div key={field} className="field-error">
+    <strong>{field}:</strong> {messages.join(', ')}
+  </div>
+))}</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Message translation</p>
+            <h2 class="section-title">Localize error messages</h2>
+            <p class="text-slate-400 mt-2">Use translators to provide localized error messages for international applications.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="code-card">
+              <div class="code-header">
+                <span>Gettext integration</span>
+                <button class="copy-btn" data-clipboard-target="#et-gettext">Copy</button>
+              </div>
+              <pre><code id="et-gettext">ExJoi.configure(
+  message_translator: fn code, default, meta ->
+    case code do
+      :required ->
+        Gettext.dgettext(MyApp.Gettext, "errors", "is required")
+      
+      :string_email ->
+        Gettext.dgettext(MyApp.Gettext, "errors", "must be a valid email")
+      
+      :string_min ->
+        Gettext.dngettext(
+          MyApp.Gettext,
+          "errors",
+          "must be at least %{min} character",
+          "must be at least %{min} characters",
+          meta[:min] || 1,
+          min: meta[:min] || 1
+        )
+      
+      :number_min ->
+        Gettext.dgettext(
+          MyApp.Gettext,
+          "errors",
+          "must be at least %{min}",
+          min: meta[:min]
+        )
+      
+      _ ->
+        default
+    end
+  end
+)</code></pre>
+            </div>
+
+            <div class="code-card">
+              <div class="code-header">
+                <span>Simple dictionary</span>
+                <button class="copy-btn" data-clipboard-target="#et-dict">Copy</button>
+              </div>
+              <pre><code id="et-dict">defmodule MyApp.ErrorTranslator do
+  @translations %{
+    en: %{
+      required: "is required",
+      string_email: "must be a valid email",
+      string_min: "must be at least %{min} characters",
+      number_min: "must be at least %{min}"
+    },
+    es: %{
+      required: "es requerido",
+      string_email: "debe ser un email válido",
+      string_min: "debe tener al menos %{min} caracteres",
+      number_min: "debe ser al menos %{min}"
+    },
+    fr: %{
+      required: "est requis",
+      string_email: "doit être un email valide",
+      string_min: "doit contenir au moins %{min} caractères",
+      number_min: "doit être au moins %{min}"
+    }
+  }
+
+  def translate(code, default, meta, locale \\ :en) do
+    case Map.get(@translations[locale] || %{}, code) do
+      nil -> default
+      template -> String.replace(template, ~r/%\{(\w+)\}/, fn _, key ->
+        to_string(Map.get(meta || %{}, String.to_atom(key), ""))
+      end)
+    end
+  end
+end
+
+ExJoi.configure(
+  message_translator: fn code, default, meta ->
+    locale = get_locale() # Your function to get current locale
+    MyApp.ErrorTranslator.translate(code, default, meta, locale)
+  end
+)</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Error codes reference</p>
+            <h2 class="section-title">All available error codes</h2>
+            <p class="text-slate-400 mt-2">Understanding error codes helps you write better translators and handle errors programmatically.</p>
+          </div>
+
+          <div class="overflow-hidden rounded-3xl border border-slate-800">
+            <table class="table-luxe">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>When it occurs</th>
+                  <th>Meta fields</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>:required</code></td>
+                  <td>Required field is missing or nil</td>
+                  <td><code>%{field: "field_name"}</code></td>
+                </tr>
+                <tr>
+                  <td><code>:string</code></td>
+                  <td>Value is not a string</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td><code>:string_min</code></td>
+                  <td>String is shorter than minimum</td>
+                  <td><code>%{min: 3}</code></td>
+                </tr>
+                <tr>
+                  <td><code>:string_max</code></td>
+                  <td>String is longer than maximum</td>
+                  <td><code>%{max: 100}</code></td>
+                </tr>
+                <tr>
+                  <td><code>:string_email</code></td>
+                  <td>String doesn't match email format</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td><code>:number</code></td>
+                  <td>Value is not a number</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td><code>:number_min</code></td>
+                  <td>Number is less than minimum</td>
+                  <td><code>%{min: 18}</code></td>
+                </tr>
+                <tr>
+                  <td><code>:number_max</code></td>
+                  <td>Number is greater than maximum</td>
+                  <td><code>%{max: 120}</code></td>
+                </tr>
+                <tr>
+                  <td><code>:array</code></td>
+                  <td>Value is not an array</td>
+                  <td>-</td>
+                </tr>
+                <tr>
+                  <td><code>:array_min_items</code></td>
+                  <td>Array has fewer items than minimum</td>
+                  <td><code>%{min_items: 1}</code></td>
+                </tr>
+                <tr>
+                  <td><code>:date</code></td>
+                  <td>Value is not a valid date</td>
+                  <td>-</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Best practices</p>
+            <h2 class="section-title">Error handling guidelines</h2>
+          </div>
+
+          <div class="space-y-4">
+            <div class="feature-card">
+              <h3>1. Use errors_flat for APIs</h3>
+              <p class="text-slate-400">The flattened format is easier for frontend frameworks to consume. Use <code>errors_flat</code> in your API responses.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>2. Use nested errors for forms</h3>
+              <p class="text-slate-400">The nested structure mirrors your form structure, making it easy to map errors to specific form fields.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>3. Translate at the boundary</h3>
+              <p class="text-slate-400">Set up your translator once in your application startup or per-request middleware, not in every schema.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>4. Customize error builder per API</h3>
+              <p class="text-slate-400">Different APIs might need different error formats. Use custom error builders to match your API contract.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>5. Include metadata in errors</h3>
+              <p class="text-slate-400">Error codes and metadata help with programmatic error handling and debugging. Don't strip them out.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="common-footer"></div>
+
+    <script src="common.js"></script>
+    <script src="scripts.js"></script>
+  </body>
+</html>
+

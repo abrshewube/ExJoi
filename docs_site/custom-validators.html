@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ExJoi · Custom Validators</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="bg-slate-950 text-slate-100 antialiased">
+    <div id="common-header"></div>
+    <div class="flex min-h-screen pt-16">
+      <div id="common-sidebar"></div>
+
+      <main class="flex-1 px-6 py-10 lg:px-16 space-y-12 pb-16">
+        <section class="docs-section">
+          <p class="hero-badge">Guide</p>
+          <h1 class="section-title text-4xl">Custom Validators &amp; Plugin System</h1>
+          <p class="text-slate-300 leading-relaxed">
+            When the built-in helpers aren't enough, register your own domain-specific validators with <code>ExJoi.extend/2</code>.
+            Validators can be lightweight anonymous functions or fully fledged modules implementing <code>ExJoi.CustomValidator</code>.
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">API Reference</p>
+            <h2 class="section-title">Custom Validator Functions</h2>
+            <p class="text-slate-400 mt-2">Complete reference for extending ExJoi with custom validators.</p>
+          </div>
+
+          <div class="space-y-8">
+            <div class="feature-card">
+              <h3><code>ExJoi.extend/2</code></h3>
+              <p class="text-slate-400 mb-4">Registers a custom validator under the provided type name. The validator can be either a function or a module implementing <code>ExJoi.CustomValidator</code>.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Parameters</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>type_name</code> (atom, required) - The name to register the validator under (e.g., <code>:uuid</code>, <code>:slug</code>)</li>
+                    <li><code>validator</code> (function | module, required) - Either an anonymous function or a module implementing <code>ExJoi.CustomValidator</code></li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Function Validator Signature</p>
+                  <p class="text-slate-400 text-sm mb-2">When using a function, it receives:</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>value</code> (any) - The value to validate</li>
+                    <li><code>context</code> (map) - Context map containing <code>:convert</code>, <code>:data</code>, <code>:custom_opts</code></li>
+                  </ul>
+                  <p class="text-slate-400 text-sm mt-2">Must return:</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>{:ok, validated_value}</code> - Success tuple with validated/normalized value</li>
+                    <li><code>{:error, [error_map, ...]}</code> - Error tuple with list of error maps</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Module Validator</p>
+                  <p class="text-slate-400 text-sm">Modules must implement <code>ExJoi.CustomValidator</code> behaviour with a <code>validate/3</code> function matching the same signature as function validators.</p>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Returns</p>
+                  <p class="text-slate-400 text-sm"><code>:ok</code> - Always returns <code>:ok</code> on successful registration</p>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Examples</span>
+                    <button class="copy-btn" data-clipboard-target="#api-extend">Copy</button>
+                  </div>
+                  <pre><code id="api-extend"># Function-based validator
+ExJoi.extend(:slug, fn value, _ctx ->
+  if is_binary(value) and String.match?(value, ~r/^[a-z0-9-]+$/) do
+    {:ok, String.downcase(value)}
+  else
+    {:error, [%{code: :slug, message: "must be a valid slug"}]}
+  end
+end)
+
+# Module-based validator
+defmodule MyApp.Validators.UUID do
+  @behaviour ExJoi.CustomValidator
+
+  @impl true
+  def validate(value, _rule, _ctx) do
+    case Ecto.UUID.cast(value) do
+      {:ok, uuid} -> {:ok, uuid}
+      :error -> {:error, [%{code: :uuid, message: "must be a UUID"}]}
+    end
+  end
+end
+
+ExJoi.extend(:uuid, MyApp.Validators.UUID)</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3><code>ExJoi.custom/2</code></h3>
+              <p class="text-slate-400 mb-4">Creates a custom validator rule for a previously registered type. Use this in your schemas to apply custom validation.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Parameters</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>type_name</code> (atom, required) - The name of a previously registered custom validator (must match the name used in <code>ExJoi.extend/2</code>)</li>
+                    <li><code>opts</code> (keyword list, optional) - Options for the custom validator rule</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Options</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:required</code> (boolean, default: <code>false</code>) - Field must be present</li>
+                    <li><code>:custom_opts</code> (keyword list) - Custom options passed to the validator function in the context map</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Returns</p>
+                  <p class="text-slate-400 text-sm"><code>%ExJoi.Rule{type: {:custom, type_name}, custom_opts: [...], ...}</code></p>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Context Map</p>
+                  <p class="text-slate-400 text-sm mb-2">The validator function receives a context map with:</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:convert</code> (boolean) - Whether convert mode is enabled</li>
+                    <li><code>:data</code> (map) - The full input data map</li>
+                    <li><code>:custom_opts</code> (keyword list) - Options passed via <code>:custom_opts</code> in the rule</li>
+                  </ul>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Examples</span>
+                    <button class="copy-btn" data-clipboard-target="#api-custom">Copy</button>
+                  </div>
+                  <pre><code id="api-custom"># Register the validator first
+ExJoi.extend(:slug, fn value, _ctx ->
+  # validation logic
+end)
+
+# Use in schema
+schema = ExJoi.schema(%{
+  handle: ExJoi.custom(:slug, required: true)
+})
+
+# With custom options
+ExJoi.extend(:strong_password, fn value, %{custom_opts: opts} ->
+  min_length = Keyword.get(opts, :min_length, 8)
+  # validation logic using min_length
+end)
+
+schema = ExJoi.schema(%{
+  password: ExJoi.custom(:strong_password, required: true, custom_opts: [min_length: 12])
+})</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3><code>ExJoi.configure/1</code></h3>
+              <p class="text-slate-400 mb-4">Configures runtime options for ExJoi, including error builders and message translators.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Parameters</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>opts</code> (keyword list, required) - Configuration options</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Options</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:error_builder</code> (function, optional) - Function that receives the error map and returns any structure</li>
+                    <li><code>:message_translator</code> (function, optional) - Function that translates error codes to localized messages</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Error Builder Signature</p>
+                  <p class="text-slate-400 text-sm mb-2">Function receives:</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>errors</code> (map) - Nested error map structure</li>
+                  </ul>
+                  <p class="text-slate-400 text-sm mt-2">Returns:</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li>Any structure you want (map, list, etc.)</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Message Translator Signature</p>
+                  <p class="text-slate-400 text-sm mb-2">Function receives:</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>code</code> (atom) - Error code (e.g., <code>:required</code>, <code>:string_email</code>)</li>
+                    <li><code>default</code> (string) - Default error message</li>
+                    <li><code>meta</code> (map) - Metadata (e.g., <code>%{min: 3}</code>, <code>%{max: 100}</code>)</li>
+                  </ul>
+                  <p class="text-slate-400 text-sm mt-2">Returns:</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li>(string) - Translated error message</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Returns</p>
+                  <p class="text-slate-400 text-sm"><code>:ok</code> - Always returns <code>:ok</code></p>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Examples</span>
+                    <button class="copy-btn" data-clipboard-target="#api-configure">Copy</button>
+                  </div>
+                  <pre><code id="api-configure"># Configure error builder
+ExJoi.configure(
+  error_builder: fn errors ->
+    %{
+      status: "invalid_params",
+      errors: errors,
+      errors_flat: ExJoi.Validator.flatten_errors(errors)
+    }
+  end
+)
+
+# Configure message translator
+ExJoi.configure(
+  message_translator: fn code, default, meta ->
+    case code do
+      :required -> "es requerido"
+      :string_email -> "debe ser un email válido"
+      :string_min -> "debe tener al menos #{meta[:min]} caracteres"
+      _ -> default
+    end
+  end
+)
+
+# Configure both
+ExJoi.configure(
+  error_builder: fn errors -> %{errors: errors} end,
+  message_translator: fn code, default, _meta -> default end
+)</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3><code>ExJoi.CustomValidator</code> Behaviour</h3>
+              <p class="text-slate-400 mb-4">The behaviour that module-based validators must implement.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Required Callback</p>
+                  <div class="code-card mt-2">
+                    <pre><code>@callback validate(
+  value :: any(),
+  rule :: ExJoi.Rule.t(),
+  context :: %{
+    convert: boolean(),
+    data: map(),
+    custom_opts: keyword()
+  }
+) :: {:ok, any()} | {:error, list(ExJoi.Validator.error())}</code></pre>
+                  </div>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Parameters</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>value</code> (any) - The value to validate (may be coerced if convert mode is enabled)</li>
+                    <li><code>rule</code> (<code>%ExJoi.Rule{}</code>) - The rule struct (contains <code>custom_opts</code>)</li>
+                    <li><code>context</code> (map) - Context map with <code>:convert</code>, <code>:data</code>, <code>:custom_opts</code></li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Returns</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>{:ok, validated_value}</code> - Success tuple with validated/normalized value</li>
+                    <li><code>{:error, [error_map, ...]}</code> - Error tuple with list of error maps</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Error Map Structure</p>
+                  <p class="text-slate-400 text-sm">Each error map should have:</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:code</code> (atom) - Error code (e.g., <code>:uuid</code>, <code>:slug</code>)</li>
+                    <li><code>:message</code> (string) - Human-readable error message</li>
+                    <li><code>:meta</code> (map, optional) - Additional metadata</li>
+                  </ul>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Example Implementation</span>
+                    <button class="copy-btn" data-clipboard-target="#api-behaviour">Copy</button>
+                  </div>
+                  <pre><code id="api-behaviour">defmodule MyApp.Validators.UUID do
+  @behaviour ExJoi.CustomValidator
+
+  @impl true
+  def validate(value, _rule, %{convert: convert?}) do
+    case Ecto.UUID.cast(value) do
+      {:ok, uuid} -> {:ok, uuid}
+      :error when convert? -> 
+        {:error, [%{code: :uuid, message: "must be a UUID string"}]}
+      :error -> 
+        {:error, [%{code: :uuid, message: "must be a UUID"}]}
+    end
+  end
+end</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Function-based</p>
+            <h2 class="section-title">Inline validators for quick wins</h2>
+          </div>
+          <div class="code-card">
+            <div class="code-header">
+              <span>extend/2</span>
+              <button class="copy-btn" data-clipboard-target="#cv-fn">Copy</button>
+            </div>
+            <pre><code id="cv-fn">ExJoi.extend(:slug, fn value, _ctx ->
+  with true <- is_binary(value),
+       true <- String.length(value) >= 3,
+       true <- String.match?(value, ~r/^[a-z0-9-]+$/) do
+    {:ok, String.downcase(value)}
+  else
+    _ -> {:error, [%{code: :slug, message: "must contain only lowercase, numbers, or dashes"}]}
+  end
+end)
+
+schema = ExJoi.schema(%{handle: ExJoi.custom(:slug, required: true)})</code></pre>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Module-based</p>
+            <h2 class="section-title">Reusable validators for teams</h2>
+          </div>
+          <div class="code-card">
+            <div class="code-header">
+              <span>Module</span>
+              <button class="copy-btn" data-clipboard-target="#cv-mod">Copy</button>
+            </div>
+            <pre><code id="cv-mod">defmodule MyApp.Validators.UUID do
+  @behaviour ExJoi.CustomValidator
+
+  @impl true
+  def validate(value, _rule, %{convert: convert?}) do
+    case Ecto.UUID.cast(value) do
+      {:ok, uuid} -> {:ok, uuid}
+      :error when convert? -> {:error, [%{code: :uuid, message: "must be a UUID string"}]}
+      :error -> {:error, [%{code: :uuid, message: "must be a UUID"}]}
+    end
+  end
+end
+
+ExJoi.extend(:uuid, MyApp.Validators.UUID)</code></pre>
+          </div>
+          <p class="text-slate-400">
+            Modules support dependency injection, logging, and other niceties. They receive the full context map, including <code>:convert</code>, the raw data payload, and any custom options you pass into <code>ExJoi.custom/2</code>.
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Error builder</p>
+            <h2 class="section-title">Shape responses for your API</h2>
+          </div>
+          <div class="code-card">
+            <div class="code-header">
+              <span>configure/1</span>
+              <button class="copy-btn" data-clipboard-target="#cv-builder">Copy</button>
+            </div>
+            <pre><code id="cv-builder">ExJoi.configure(
+  error_builder: fn errors ->
+    %{
+      status: "invalid_params",
+      errors: errors,
+      errors_flat: ExJoi.Validator.flatten_errors(errors)
+    }
+  end
+)</code></pre>
+          </div>
+          <p class="text-slate-400">
+            Pair custom validators with a builder so UI teams get the exact structure they expect. Combine this with translators (see the Error Tree guide) for localized copy.
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">More examples</p>
+            <h2 class="section-title">Common custom validators</h2>
+            <p class="text-slate-400 mt-2">See how to build validators for common use cases.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="code-card">
+              <div class="code-header">
+                <span>URL validator</span>
+                <button class="copy-btn" data-clipboard-target="#cv-url">Copy</button>
+              </div>
+              <pre><code id="cv-url">ExJoi.extend(:url, fn value, _ctx ->
+  if is_binary(value) and String.match?(value, ~r/^https?:\/\/.+/i) do
+    {:ok, value}
+  else
+    {:error, [%{code: :url, message: "must be a valid URL"}]}
+  end
+end)
+
+schema = ExJoi.schema(%{
+  website: ExJoi.custom(:url, required: true)
+})</code></pre>
+            </div>
+
+            <div class="code-card">
+              <div class="code-header">
+                <span>Phone number validator</span>
+                <button class="copy-btn" data-clipboard-target="#cv-phone">Copy</button>
+              </div>
+              <pre><code id="cv-phone">ExJoi.extend(:phone, fn value, _ctx ->
+  # Remove common formatting characters
+  cleaned = value
+    |> String.replace(~r/[\s\-\(\)]/, "")
+  
+  if String.match?(cleaned, ~r/^\d{10,15}$/) do
+    {:ok, cleaned}
+  else
+    {:error, [%{code: :phone, message: "must be a valid phone number"}]}
+  end
+end)
+
+schema = ExJoi.schema(%{
+  phone: ExJoi.custom(:phone, required: true)
+})
+
+# Accepts: "(555) 123-4567", "555-123-4567", "5551234567"
+# Normalizes to: "5551234567"</code></pre>
+            </div>
+
+            <div class="code-card">
+              <div class="code-header">
+                <span>Credit card validator</span>
+                <button class="copy-btn" data-clipboard-target="#cv-credit">Copy</button>
+              </div>
+              <pre><code id="cv-credit">defmodule MyApp.Validators.CreditCard do
+  @behaviour ExJoi.CustomValidator
+
+  @impl true
+  def validate(value, _rule, _ctx) do
+    cleaned = String.replace(value, ~r/\s/, "")
+    
+    cond do
+      !String.match?(cleaned, ~r/^\d{13,19}$/) ->
+        {:error, [%{code: :credit_card, message: "must be 13-19 digits"}]}
+      
+      !luhn_valid?(cleaned) ->
+        {:error, [%{code: :credit_card, message: "invalid card number"}]}
+      
+      true ->
+        {:ok, cleaned}
+    end
+  end
+
+  defp luhn_valid?(number) do
+    number
+    |> String.reverse()
+    |> String.graphemes()
+    |> Enum.with_index()
+    |> Enum.map(fn {digit, idx} ->
+      d = String.to_integer(digit)
+      if rem(idx, 2) == 1, do: d * 2, else: d
+    end)
+    |> Enum.map(fn n -> if n > 9, do: n - 9, else: n end)
+    |> Enum.sum()
+    |> rem(10) == 0
+  end
+end
+
+ExJoi.extend(:credit_card, MyApp.Validators.CreditCard)</code></pre>
+            </div>
+
+            <div class="code-card">
+              <div class="code-header">
+                <span>Password strength validator</span>
+                <button class="copy-btn" data-clipboard-target="#cv-password">Copy</button>
+              </div>
+              <pre><code id="cv-password">ExJoi.extend(:strong_password, fn value, %{custom_opts: opts} ->
+  min_length = Keyword.get(opts || [], :min_length, 8)
+  require_upper = Keyword.get(opts || [], :require_upper, true)
+  require_lower = Keyword.get(opts || [], :require_lower, true)
+  require_number = Keyword.get(opts || [], :require_number, true)
+  require_special = Keyword.get(opts || [], :require_special, false)
+
+  errors = []
+  
+  errors = if String.length(value) < min_length do
+    ["must be at least #{min_length} characters" | errors]
+  else
+    errors
+  end
+
+  errors = if require_upper and !String.match?(value, ~r/[A-Z]/) do
+    ["must contain an uppercase letter" | errors]
+  else
+    errors
+  end
+
+  errors = if require_lower and !String.match?(value, ~r/[a-z]/) do
+    ["must contain a lowercase letter" | errors]
+  else
+    errors
+  end
+
+  errors = if require_number and !String.match?(value, ~r/\d/) do
+    ["must contain a number" | errors]
+  else
+    errors
+  end
+
+  errors = if require_special and !String.match?(value, ~r/[!@#$%^&*(),.?":{}|<>]/) do
+    ["must contain a special character" | errors]
+  else
+    errors
+  end
+
+  if Enum.empty?(errors) do
+    {:ok, value}
+  else
+    {:error, Enum.map(errors, fn msg -> %{code: :strong_password, message: msg} end)}
+  end
+end)
+
+schema = ExJoi.schema(%{
+  password: ExJoi.custom(:strong_password, required: true, custom_opts: [
+    min_length: 12,
+    require_special: true
+  ])
+})</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Module-based validators</p>
+            <h2 class="section-title">Advanced patterns</h2>
+            <p class="text-slate-400 mt-2">Modules give you more power: dependency injection, logging, and complex validation logic.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="code-card">
+              <div class="code-header">
+                <span>Database-backed validator</span>
+                <button class="copy-btn" data-clipboard-target="#cv-db">Copy</button>
+              </div>
+              <pre><code id="cv-db">defmodule MyApp.Validators.UniqueEmail do
+  @behaviour ExJoi.CustomValidator
+
+  @impl true
+  def validate(value, _rule, _ctx) do
+    case MyApp.Repo.get_by(MyApp.User, email: value) do
+      nil -> {:ok, value}
+      _user -> {:error, [%{code: :unique_email, message: "email already taken"}]}
+    end
+  end
+end
+
+ExJoi.extend(:unique_email, MyApp.Validators.UniqueEmail)
+
+schema = ExJoi.schema(%{
+  email: ExJoi.string(required: true, email: true)
+    |> ExJoi.custom(:unique_email)
+})</code></pre>
+            </div>
+
+            <div class="code-card">
+              <div class="code-header">
+                <span>Validator with context</span>
+                <button class="copy-btn" data-clipboard-target="#cv-context">Copy</button>
+              </div>
+              <pre><code id="cv-context">defmodule MyApp.Validators.AllowedDomain do
+  @behaviour ExJoi.CustomValidator
+
+  @impl true
+  def validate(value, _rule, %{custom_opts: opts, data: data}) do
+    allowed_domains = Keyword.get(opts || [], :domains, [])
+    current_user_domain = Map.get(data, "current_user_domain")
+    
+    email_domain = value
+      |> String.split("@")
+      |> List.last()
+
+    cond do
+      email_domain in allowed_domains ->
+        {:ok, value}
+      
+      email_domain == current_user_domain ->
+        {:ok, value}
+      
+      true ->
+        {:error, [%{code: :allowed_domain, message: "email domain not allowed"}]}
+    end
+  end
+end
+
+ExJoi.extend(:allowed_domain, MyApp.Validators.AllowedDomain)
+
+schema = ExJoi.schema(%{
+  email: ExJoi.string(required: true, email: true)
+    |> ExJoi.custom(:allowed_domain, custom_opts: [domains: ["company.com", "partner.com"]])
+})</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Error builder customization</p>
+            <h2 class="section-title">Shape error responses</h2>
+            <p class="text-slate-400 mt-2">Customize how validation errors are formatted for your API consumers.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="code-card">
+              <div class="code-header">
+                <span>JSON:API format</span>
+                <button class="copy-btn" data-clipboard-target="#cv-jsonapi">Copy</button>
+              </div>
+              <pre><code id="cv-jsonapi">ExJoi.configure(
+  error_builder: fn errors ->
+    source_pointer = fn path ->
+      "/data/attributes/#{String.replace(path, ".", "/")}"
+    end
+
+    jsonapi_errors = errors
+      |> ExJoi.Validator.flatten_errors()
+      |> Enum.map(fn {path, messages} ->
+        %{
+          status: "422",
+          source: %{pointer: source_pointer.(path)},
+          title: "Validation Error",
+          detail: Enum.join(messages, ", ")
+        }
+      end)
+
+    %{
+      errors: jsonapi_errors
+    }
+  end
+)</code></pre>
+            </div>
+
+            <div class="code-card">
+              <div class="code-header">
+                <span>Simple flat format</span>
+                <button class="copy-btn" data-clipboard-target="#cv-simple">Copy</button>
+              </div>
+              <pre><code id="cv-simple">ExJoi.configure(
+  error_builder: fn errors ->
+    %{
+      success: false,
+      validation_errors: ExJoi.Validator.flatten_errors(errors)
+    }
+  end
+)</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Best practices</p>
+            <h2 class="section-title">Writing effective custom validators</h2>
+          </div>
+
+          <div class="space-y-4">
+            <div class="feature-card">
+              <h3>1. Return clear error messages</h3>
+              <p class="text-slate-400">Error messages should tell users exactly what's wrong and how to fix it.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>2. Use appropriate error codes</h3>
+              <p class="text-slate-400">Error codes help with translation and programmatic handling. Use descriptive codes like <code>:unique_email</code> instead of generic ones.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>3. Handle edge cases</h3>
+              <p class="text-slate-400">What happens with nil, empty strings, or unexpected types? Always validate input types first.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>4. Keep validators focused</h3>
+              <p class="text-slate-400">Each validator should do one thing well. Combine multiple validators in a schema rather than creating a monolithic validator.</p>
+            </div>
+
+            <div class="feature-card">
+              <h3>5. Test thoroughly</h3>
+              <p class="text-slate-400">Write tests for valid inputs, invalid inputs, edge cases, and error message formatting.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="common-footer"></div>
+
+    <script src="common.js"></script>
+    <script src="scripts.js"></script>
+  </body>
+</html>
+

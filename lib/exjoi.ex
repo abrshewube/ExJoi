@@ -301,9 +301,8 @@ defmodule ExJoi do
     * `:error_builder` - a function that receives the error map and returns any structure.
   """
   def configure(opts) when is_list(opts) do
-    if builder = Keyword.get(opts, :error_builder) do
-      Config.set_error_builder(builder)
-    end
+    if builder = Keyword.get(opts, :error_builder), do: Config.set_error_builder(builder)
+    if translator = Keyword.get(opts, :message_translator), do: Config.set_message_translator(translator)
 
     :ok
   end

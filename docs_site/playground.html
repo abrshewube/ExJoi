@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ExJoi · Playground</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="bg-slate-950 text-slate-100 antialiased">
+    <div id="common-header"></div>
+    <div class="flex min-h-screen pt-16">
+      <div id="common-sidebar"></div>
+
+      <main class="flex-1 px-6 py-10 lg:px-16 space-y-12 pb-16">
+        <section class="docs-section">
+          <p class="hero-badge">Interactive</p>
+          <h1 class="section-title text-4xl">Explore ExJoi in the browser</h1>
+          <p class="text-slate-300">
+            The playground simulates a representative schema, runs validation rules in JavaScript, and mirrors ExJoi’s success/error envelopes—including the flattened error tree.
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Visual form</p>
+            <h2 class="section-title">Role-based validation demo</h2>
+          </div>
+          <div class="rounded-3xl border border-slate-800 bg-slate-900/40 p-6">
+            <div class="playground-grid">
+              <div class="space-y-4">
+                <label class="block">
+                  <span class="text-sm text-slate-400">Name</span>
+                  <input id="pg-name" class="mt-1 w-full rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2 text-white" value="Maya" />
+                </label>
+                <label class="block">
+                  <span class="text-sm text-slate-400">Age</span>
+                  <input id="pg-age" type="number" class="mt-1 w-full rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2 text-white" value="28" />
+                </label>
+                <label class="block">
+                  <span class="text-sm text-slate-400">Role</span>
+                  <select id="pg-role" class="mt-1 w-full rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2 text-white">
+                    <option value="admin">admin</option>
+                    <option value="editor">editor</option>
+                    <option value="viewer">viewer</option>
+                  </select>
+                </label>
+                <label class="block">
+                  <span class="text-sm text-slate-400">Permissions (comma separated)</span>
+                  <input id="pg-perms" class="mt-1 w-full rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2 text-white" value="read,write" />
+                </label>
+                <label class="block">
+                  <span class="text-sm text-slate-400">Onboarded at (ISO8601)</span>
+                  <input id="pg-date" class="mt-1 w-full rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2 text-white" value="2025-01-01T12:00:00Z" />
+                </label>
+                <label class="inline-flex items-center space-x-2 text-sm text-slate-300">
+                  <input id="pg-convert" type="checkbox" class="rounded border-slate-600 bg-slate-900" checked />
+                  <span>Enable convert mode</span>
+                </label>
+                <button id="pg-run" class="w-full rounded-2xl bg-gradient-to-r from-sky-500 to-emerald-400 py-2 font-semibold text-slate-950">
+                  Run validation
+                </button>
+              </div>
+              <div>
+                <p class="text-sm text-slate-400 mb-2">Result</p>
+                <pre id="pg-result" class="playground-output">// Fill out the form and click “Run validation”</pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">JSON sandbox</p>
+            <h2 class="section-title">Tweak payloads directly</h2>
+            <p class="text-slate-400">The sandbox uses the same simulated schema; edit the JSON payload to see how errors change.</p>
+          </div>
+          <div class="rounded-3xl border border-slate-800 bg-slate-900/40 p-6 space-y-4">
+            <textarea id="sandbox-data" class="w-full rounded-2xl border border-slate-700 bg-slate-950/60 p-4 text-sm" rows="8">
+{
+  "name": "Maya",
+  "age": "17",
+  "role": "admin",
+  "permissions": "read",
+  "active": "true",
+  "onboarded_at": "2025-01-01T12:00:00Z"
+}</textarea>
+            <label class="inline-flex items-center space-x-2 text-sm text-slate-300">
+              <input id="sandbox-convert" type="checkbox" class="rounded border-slate-600 bg-slate-900" checked />
+              <span>Enable convert mode</span>
+            </label>
+            <button id="sandbox-run" class="w-full rounded-2xl bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2 font-semibold text-white">
+              Validate JSON payload
+            </button>
+            <pre id="sandbox-output" class="playground-output">// Results appear here</pre>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="common-footer"></div>
+
+    <script src="common.js"></script>
+    <script src="scripts.js"></script>
+  </body>
+</html>
+
