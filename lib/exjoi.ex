@@ -127,6 +127,50 @@ defmodule ExJoi do
     }
   end
 
+  @doc """
+  Creates a conditional rule that switches validation based on another field.
+
+  ## Options
+
+    * `:is` - Matches when the other field equals the given value.
+    * `:in` - Matches when the other field is within the provided list.
+    * `:matches` - Matches when the other field satisfies the provided `Regex`.
+    * `:min` / `:max` - Matches when the numeric value falls within the inclusive range.
+    * `:then` - **Required.** Rule applied when the condition matches.
+    * `:otherwise` - Optional fallback rule when the condition does not match.
+    * `:required` - Whether the field itself is required regardless of conditions.
+
+  The third argument `default_rule` (optional) provides a base rule that is used
+  when no `:otherwise` rule is provided.
+  """
+  def unquote(:when)(other_field, condition_opts, default_rule \\ nil) do
+    then_rule = Keyword.fetch!(condition_opts, :then)
+
+    checks = %{
+      is: Keyword.get(condition_opts, :is),
+      in: Keyword.get(condition_opts, :in),
+      matches: Keyword.get(condition_opts, :matches),
+      min: Keyword.get(condition_opts, :min),
+      max: Keyword.get(condition_opts, :max)
+    }
+
+    unless Enum.any?(checks, fn {_k, v} -> not is_nil(v) end) do
+      raise ArgumentError, "ExJoi.when/3 requires at least one condition (:is/:in/:matches/:min/:max)"
+    end
+
+    %Rule{
+      type: :conditional,
+      required: Keyword.get(condition_opts, :required, false),
+      conditional: %{
+        field: other_field,
+        checks: checks,
+        then: then_rule,
+        otherwise: Keyword.get(condition_opts, :otherwise, default_rule),
+        base: default_rule
+      }
+    }
+  end
+
 
   @doc """
   Creates a string validator rule.

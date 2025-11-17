@@ -23,11 +23,12 @@ defmodule ExJoi.Rule do
     min_items: nil,
     max_items: nil,
     unique: false,
-    delimiter: ","
+    delimiter: ",",
+    conditional: nil
   ]
 
   @type t :: %__MODULE__{
-          type: :string | :number | :boolean | :object | :array | :date,
+          type: :string | :number | :boolean | :object | :array | :date | :conditional,
           required: boolean(),
           min: integer() | float() | nil,
           max: integer() | float() | nil,
@@ -41,6 +42,7 @@ defmodule ExJoi.Rule do
           min_items: non_neg_integer() | nil,
           max_items: non_neg_integer() | nil,
           unique: boolean(),
-          delimiter: String.t() | nil
+          delimiter: String.t() | nil,
+          conditional: map() | nil
         }
 end

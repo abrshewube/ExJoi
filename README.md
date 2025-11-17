@@ -9,16 +9,17 @@ ExJoi brings a Joi-inspired DSL to Elixir, letting you describe data rules once 
 ## Quick Links
 
 - GitHub · https://github.com/abrshewube/ExJoi
-- HexDocs (v0.5.0) · https://hexdocs.pm/exjoi/0.5.0
+- HexDocs (v0.6.0) · https://hexdocs.pm/exjoi/0.6.0
 - Hex Package · https://hex.pm/packages/exjoi
 
 ---
 
 ## Highlights
 
-- **Schema-first DSL** – Compose readable validation rules with `ExJoi.string/1`, `number/1`, `boolean/1`, `object/1`, `array/1`, and `date/1`.
+- **Schema-first DSL** – Compose readable validation rules with `ExJoi.string/1`, `number/1`, `boolean/1`, `object/1`, `array/1`, `date/1`, and `when/3`.
 - **Advanced constraints** – Min/max lengths, regex patterns, email format checks, integer guards, truthy/falsy coercion, and per-item array validation.
 - **Convert mode** – Toggle `convert: true` to coerce numbers, booleans, dates, strings, and arrays like Joi’s “convert” flow.
+- **Conditional rules** – Use `ExJoi.when/3` to change requirements based on other fields, value ranges, or regex matches.
 - **Nested objects & arrays** – Recursively validate deep maps and lists with rich, nested error payloads.
 - **Smart defaults** – Provide top-level defaults that merge into incoming params before validation.
 - **Actionable errors** – Structured responses include machine-friendly codes, friendly messages, and metadata.
@@ -33,7 +34,7 @@ Add the dependency and you’re ready to validate:
 ```elixir
 defp deps do
   [
-    {:exjoi, "~> 0.5.0"}
+    {:exjoi, "~> 0.6.0"}
   ]
 end
 ```
@@ -46,6 +47,7 @@ end
 schema =
   ExJoi.schema(
     %{
+      role: ExJoi.string(required: true),
       user:
         ExJoi.object(%{
           name: ExJoi.string(required: true, min: 2, max: 50),
@@ -54,12 +56,19 @@ schema =
       stats: ExJoi.number(integer: true, min: 0),
       friends: ExJoi.array(of: ExJoi.string(min: 3), min_items: 1, unique: true),
       active: ExJoi.boolean(),
-      onboarded_at: ExJoi.date(required: true)
+      onboarded_at: ExJoi.date(required: true),
+      permissions:
+        ExJoi.when(
+          :role,
+          is: "admin",
+          then: ExJoi.array(of: ExJoi.string(), min_items: 1, required: true)
+        )
     },
     defaults: %{active: true, stats: 0}
   )
 
 params = %{
+  "role" => "admin",
   "user" => %{"name" => "Maya", "email" => "maya@example.com"},
   "friends" => "Ana,Bea,Clara",
   "active" => "false",
@@ -97,6 +106,7 @@ end
 | `ExJoi.object`  | `:required` (accepts nested map or `%ExJoi.Schema{}`)                                       |
 | `ExJoi.array`   | `:required`, `:of`, `:min_items`/`:max_items` (aliases `:min`/`:max`), `:unique`, `:delimiter` |
 | `ExJoi.date`    | `:required`                                                                                 |
+| `ExJoi.when`    | `:is`, `:in`, `:matches`, `:min`, `:max`, `:then` (required), `:otherwise`, `:required`     |
 
 ```elixir
 ExJoi.string(required: true, min: 3, max: 32, pattern: ~r/^[a-z0-9_]+$/)
@@ -198,13 +208,30 @@ ExJoi.validate(params, schema, convert: true)
 
 When `convert: false` (default), `"42"` and `"true"` would raise type errors.
 
+### Conditional permissions
+
+```elixir
+schema =
+  ExJoi.schema(%{
+    role: ExJoi.string(required: true),
+    permissions:
+      ExJoi.when(
+        :role,
+        is: "admin",
+        then: ExJoi.array(of: ExJoi.string(), min_items: 1, required: true),
+        otherwise: ExJoi.array(of: ExJoi.string())
+      )
+  })
+```
+
 ---
 
 ## Roadmap Snapshot
 
 | Version | Status  | Highlights |
 | ------- | ------- | ---------- |
-| 5       | Current | Convert mode (numbers, booleans, dates, strings), ISO date type |
+| 6       | Current | Conditional rules (`ExJoi.when/3`) with field/value/range/regex checks |
+| 5       | Shipped | Convert mode (numbers, booleans, dates, strings), ISO date type |
 | 4       | Shipped | Array validation (min/max, unique, delimiter coercion, per-item rules) |
 | 3       | Shipped | Object schemas, nested validation, defaulting |
 | 2       | Shipped | Advanced constraints, truthy/falsy coercion, structured errors |
