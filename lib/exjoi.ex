@@ -26,16 +26,62 @@ defmodule ExJoi do
   @doc """
   Creates a validation schema from a map of field rules.
 
+  ## Options
+
+    * `:defaults` - A map of default values merged into input data before validation (top-level).
+
   ## Examples
 
-      schema = ExJoi.schema(%{
-        name: ExJoi.string(required: true),
-        age: ExJoi.number()
-      })
+      schema =
+        ExJoi.schema(
+          %{
+            name: ExJoi.string(required: true),
+            active: ExJoi.boolean()
+          },
+          defaults: %{active: true}
+        )
   """
-  def schema(fields) when is_map(fields) do
-    %Schema{fields: fields}
+  def schema(fields, opts \\ []) when is_map(fields) do
+    defaults = Keyword.get(opts, :defaults, %{})
+
+    %Schema{
+      fields: fields,
+      defaults: defaults
+    }
   end
+  @doc """
+  Creates a nested object validator. Accepts either a map of field rules
+  or an existing `%ExJoi.Schema{}`.
+
+  ## Examples
+
+      ExJoi.object(%{
+        profile: ExJoi.string(required: true)
+      })
+
+      nested_schema = ExJoi.schema(%{email: ExJoi.string(email: true)})
+      ExJoi.object(nested_schema)
+  """
+  def object(fields_or_schema, opts \\ [])
+
+  def object(%Schema{} = schema, opts) do
+    do_object(schema, opts)
+  end
+
+  def object(fields, opts) when is_map(fields) do
+    fields
+    |> schema()
+    |> do_object(opts)
+  end
+
+  defp do_object(schema, opts) do
+    %Rule{
+      type: :object,
+      required: Keyword.get(opts, :required, false),
+      schema: schema
+    }
+  end
+
 
   @doc """
   Creates a string validator rule.

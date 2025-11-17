@@ -9,18 +9,19 @@ ExJoi brings a Joi-inspired DSL to Elixir, letting you describe data rules once 
 ## Quick Links
 
 - GitHub · https://github.com/abrshewube/ExJoi
-- HexDocs (v0.2.0) · https://hexdocs.pm/exjoi/0.2.0
+- HexDocs (v0.3.0) · https://hexdocs.pm/exjoi/0.3.0
 - Hex Package · https://hex.pm/packages/exjoi
 
 ---
 
 ## Highlights
 
-- **Schema-first DSL** – Compose readable validation rules with `ExJoi.string/1`, `number/1`, and `boolean/1`.
+- **Schema-first DSL** – Compose readable validation rules with `ExJoi.string/1`, `number/1`, `boolean/1`, and `object/1`.
 - **Advanced constraints** – Min/max lengths, regex patterns, email format checks, integer guards, and truthy/falsy coercion.
+- **Nested objects** – Recursively validate deep maps with rich, nested error payloads.
+- **Smart defaults** – Provide top-level defaults that merge into incoming params before validation.
 - **Actionable errors** – Structured responses include machine-friendly codes, friendly messages, and metadata.
 - **Key-flexible** – Accepts atom or string keys seamlessly.
-- **Roadmap-driven** – Clear multi-version plan culminating in macro DSL optimizations.
 
 ---
 
@@ -31,7 +32,7 @@ Add the dependency and you’re ready to validate:
 ```elixir
 defp deps do
   [
-    {:exjoi, "~> 0.2.0"}
+    {:exjoi, "~> 0.3.0"}
   ]
 end
 ```
@@ -42,14 +43,20 @@ end
 
 ```elixir
 schema =
-  ExJoi.schema(%{
-    name: ExJoi.string(required: true, min: 2, max: 50),
-    email: ExJoi.string(email: true),
-    age: ExJoi.number(required: true, min: 18, max: 120, integer: true),
-    active: ExJoi.boolean(truthy: ["Y", "yes"], falsy: ["N", "no"])
-  })
+  ExJoi.schema(
+    %{
+      user:
+        ExJoi.object(%{
+          name: ExJoi.string(required: true, min: 2, max: 50),
+          email: ExJoi.string(required: true, email: true)
+        }),
+      stats: ExJoi.number(integer: true, min: 0),
+      active: ExJoi.boolean(truthy: ["Y", "yes"], falsy: ["N", "no"])
+    },
+    defaults: %{active: true, stats: 0}
+  )
 
-case ExJoi.validate(%{"name" => "Maya", "age" => 28, "active" => "Y"}, schema) do
+case ExJoi.validate(%{"user" => %{"name" => "Maya", "email" => "maya@example.com"}}, schema) do
   {:ok, normalized} ->
     IO.inspect(normalized)
 
@@ -57,7 +64,7 @@ case ExJoi.validate(%{"name" => "Maya", "age" => 28, "active" => "Y"}, schema) d
     IO.inspect({msg, errors})
 end
 
-# {:ok, %{"name" => "Maya", "age" => 28, "active" => true}}
+# {:ok, %{"active" => true, "stats" => 0, "user" => %{"email" => "maya@example.com", "name" => "Maya"}}}
 ```
 
 ---
@@ -69,6 +76,7 @@ end
 | `ExJoi.string`  | `:required`, `:min`, `:max`, `:pattern` (`Regex`), `:email`                                 |
 | `ExJoi.number`  | `:required`, `:min`, `:max`, `:integer`                                                     |
 | `ExJoi.boolean` | `:required`, `:truthy`, `:falsy` (lists coerced to `true` / `false`)                        |
+| `ExJoi.object`  | `:required` (accepts nested map or `%ExJoi.Schema{}`)                                       |
 
 ```elixir
 ExJoi.string(required: true, min: 3, max: 32, pattern: ~r/^[a-z0-9_]+$/)
@@ -133,14 +141,26 @@ ExJoi.schema(%{
 })
 ```
 
+### Nested user profile
+
+```elixir
+ExJoi.schema(%{
+  user:
+    ExJoi.object(%{
+      email: ExJoi.string(required: true, email: true),
+      profile: ExJoi.object(%{bio: ExJoi.string(max: 140)})
+    })
+})
+```
+
 ---
 
 ## Roadmap Snapshot
 
 | Version | Status  | Highlights |
 | ------- | ------- | ---------- |
-| 2       | Current | Advanced constraints, truthy/falsy coercion, structured errors |
-| 3       | Next    | Nested object schemas |
+| 3       | Current | Object schemas, nested validation, defaulting |
+| 2       | Shipped | Advanced constraints, truthy/falsy coercion, structured errors |
 | 4       | Planned | Array validation |
 | 5       | Planned | Type coercion / casting |
 | 6       | Planned | Conditional rules |

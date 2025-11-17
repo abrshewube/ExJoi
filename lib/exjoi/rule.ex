@@ -17,11 +17,12 @@ defmodule ExJoi.Rule do
     email: false,
     integer: false,
     truthy: nil,
-    falsy: nil
+    falsy: nil,
+    schema: nil
   ]
 
   @type t :: %__MODULE__{
-          type: :string | :number | :boolean,
+          type: :string | :number | :boolean | :object,
           required: boolean(),
           min: integer() | float() | nil,
           max: integer() | float() | nil,
@@ -29,6 +30,7 @@ defmodule ExJoi.Rule do
           email: boolean(),
           integer: boolean(),
           truthy: list() | nil,
-          falsy: list() | nil
+          falsy: list() | nil,
+          schema: ExJoi.Schema.t() | nil
         }
 end

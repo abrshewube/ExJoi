@@ -146,5 +146,61 @@ defmodule ExJoiTest do
       assert {:error, %{errors: errors}} = ExJoi.validate(%{active: "maybe"}, schema)
       assert [%{code: :boolean}] = errors.active
     end
+
+    test "validates nested object schemas" do
+      schema =
+        ExJoi.schema(%{
+          user:
+            ExJoi.object(%{
+              email: ExJoi.string(required: true, email: true),
+              profile: ExJoi.object(%{bio: ExJoi.string(max: 5)})
+            })
+        })
+
+      assert {:ok, %{user: %{email: "alex@example.com", profile: %{bio: "short"}}}} =
+               ExJoi.validate(
+                 %{user: %{email: "alex@example.com", profile: %{bio: "short"}}},
+                 schema
+               )
+
+      assert {:error, %{errors: errors}} =
+               ExJoi.validate(%{user: %{email: "bad", profile: %{bio: "too long"}}}, schema)
+
+      assert [%{code: :string_email}] = errors.user.email
+      assert [%{code: :string_max}] = errors.user.profile.bio
+    end
+
+    test "allows object schemas defined separately" do
+      profile_schema =
+        ExJoi.schema(%{
+          bio: ExJoi.string(max: 160)
+        })
+
+      schema =
+        ExJoi.schema(%{
+          profile: ExJoi.object(profile_schema)
+        })
+
+      assert {:ok, %{profile: %{bio: "hello"}}} =
+               ExJoi.validate(%{profile: %{bio: "hello"}}, schema)
+    end
+
+    test "applies top-level defaults" do
+      schema =
+        ExJoi.schema(
+          %{
+            active: ExJoi.boolean(),
+            settings: ExJoi.object(%{timezone: ExJoi.string(required: true)})
+          },
+          defaults: %{
+            active: true,
+            settings: %{timezone: "UTC"}
+          }
+        )
+
+      assert {:ok, %{active: true, settings: %{timezone: "UTC"}}} = ExJoi.validate(%{}, schema)
+      assert {:ok, %{active: false, settings: %{timezone: "UTC"}}} =
+               ExJoi.validate(%{active: false}, schema)
+    end
   end
 end
