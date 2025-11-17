@@ -82,6 +82,35 @@ defmodule ExJoi do
     }
   end
 
+  @doc """
+  Creates an array validator rule.
+
+  ## Options
+
+    * `:required` - Ensures the array is present.
+    * `:of` - A rule applied to each element (e.g. `ExJoi.string(min: 3)`).
+    * `:min_items` / `:max_items` (`:min` / `:max` aliases) - Length constraints.
+    * `:unique` - When true, all elements must be unique.
+    * `:delimiter` - String delimiter used to coerce binaries into lists (default: `","`).
+
+  ## Examples
+
+      ExJoi.array(of: ExJoi.string(min: 3), min_items: 1)
+      ExJoi.array(of: ExJoi.number(integer: true), unique: true)
+      ExJoi.array(delimiter: "|")
+  """
+  def array(opts \\ []) do
+    %Rule{
+      type: :array,
+      required: Keyword.get(opts, :required, false),
+      of: Keyword.get(opts, :of),
+      min_items: Keyword.get(opts, :min_items) || Keyword.get(opts, :min),
+      max_items: Keyword.get(opts, :max_items) || Keyword.get(opts, :max),
+      unique: Keyword.get(opts, :unique, false),
+      delimiter: Keyword.get(opts, :delimiter, ",")
+    }
+  end
+
 
   @doc """
   Creates a string validator rule.

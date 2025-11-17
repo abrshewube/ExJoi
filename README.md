@@ -9,19 +9,19 @@ ExJoi brings a Joi-inspired DSL to Elixir, letting you describe data rules once 
 ## Quick Links
 
 - GitHub · https://github.com/abrshewube/ExJoi
-- HexDocs (v0.3.0) · https://hexdocs.pm/exjoi/0.3.0
+- HexDocs (v0.4.0) · https://hexdocs.pm/exjoi/0.4.0
 - Hex Package · https://hex.pm/packages/exjoi
 
 ---
 
 ## Highlights
 
-- **Schema-first DSL** – Compose readable validation rules with `ExJoi.string/1`, `number/1`, `boolean/1`, and `object/1`.
-- **Advanced constraints** – Min/max lengths, regex patterns, email format checks, integer guards, and truthy/falsy coercion.
-- **Nested objects** – Recursively validate deep maps with rich, nested error payloads.
+- **Schema-first DSL** – Compose readable validation rules with `ExJoi.string/1`, `number/1`, `boolean/1`, `object/1`, and `array/1`.
+- **Advanced constraints** – Min/max lengths, regex patterns, email format checks, integer guards, truthy/falsy coercion, and per-item array validation.
+- **Nested objects & arrays** – Recursively validate deep maps and lists with rich, nested error payloads.
 - **Smart defaults** – Provide top-level defaults that merge into incoming params before validation.
 - **Actionable errors** – Structured responses include machine-friendly codes, friendly messages, and metadata.
-- **Key-flexible** – Accepts atom or string keys seamlessly.
+- **Key-flexible** – Accepts atom or string keys seamlessly, with string-to-array coercion via delimiters.
 
 ---
 
@@ -32,7 +32,7 @@ Add the dependency and you’re ready to validate:
 ```elixir
 defp deps do
   [
-    {:exjoi, "~> 0.3.0"}
+    {:exjoi, "~> 0.4.0"}
   ]
 end
 ```
@@ -51,12 +51,18 @@ schema =
           email: ExJoi.string(required: true, email: true)
         }),
       stats: ExJoi.number(integer: true, min: 0),
+      friends: ExJoi.array(of: ExJoi.string(min: 3), min_items: 1, unique: true),
       active: ExJoi.boolean(truthy: ["Y", "yes"], falsy: ["N", "no"])
     },
     defaults: %{active: true, stats: 0}
   )
 
-case ExJoi.validate(%{"user" => %{"name" => "Maya", "email" => "maya@example.com"}}, schema) do
+params = %{
+  "user" => %{"name" => "Maya", "email" => "maya@example.com"},
+  "friends" => "Ana,Bea,Clara"
+}
+
+case ExJoi.validate(params, schema) do
   {:ok, normalized} ->
     IO.inspect(normalized)
 
@@ -64,7 +70,13 @@ case ExJoi.validate(%{"user" => %{"name" => "Maya", "email" => "maya@example.com
     IO.inspect({msg, errors})
 end
 
-# {:ok, %{"active" => true, "stats" => 0, "user" => %{"email" => "maya@example.com", "name" => "Maya"}}}
+# {:ok,
+#  %{
+#    "active" => true,
+#    "friends" => ["Ana", "Bea", "Clara"],
+#    "stats" => 0,
+#    "user" => %{"email" => "maya@example.com", "name" => "Maya"}
+#  }}
 ```
 
 ---
@@ -77,6 +89,7 @@ end
 | `ExJoi.number`  | `:required`, `:min`, `:max`, `:integer`                                                     |
 | `ExJoi.boolean` | `:required`, `:truthy`, `:falsy` (lists coerced to `true` / `false`)                        |
 | `ExJoi.object`  | `:required` (accepts nested map or `%ExJoi.Schema{}`)                                       |
+| `ExJoi.array`   | `:required`, `:of`, `:min_items`/`:max_items` (aliases `:min`/`:max`), `:unique`, `:delimiter` |
 
 ```elixir
 ExJoi.string(required: true, min: 3, max: 32, pattern: ~r/^[a-z0-9_]+$/)
@@ -153,15 +166,23 @@ ExJoi.schema(%{
 })
 ```
 
+### Friends array with coercion
+
+```elixir
+ExJoi.schema(%{
+  friends: ExJoi.array(of: ExJoi.string(min: 3), min_items: 1, unique: true, delimiter: ";")
+})
+```
+
 ---
 
 ## Roadmap Snapshot
 
 | Version | Status  | Highlights |
 | ------- | ------- | ---------- |
-| 3       | Current | Object schemas, nested validation, defaulting |
+| 4       | Current | Array validation (min/max, unique, delimiter coercion, per-item rules) |
+| 3       | Shipped | Object schemas, nested validation, defaulting |
 | 2       | Shipped | Advanced constraints, truthy/falsy coercion, structured errors |
-| 4       | Planned | Array validation |
 | 5       | Planned | Type coercion / casting |
 | 6       | Planned | Conditional rules |
 | 7       | Planned | Custom validators & plugin system |

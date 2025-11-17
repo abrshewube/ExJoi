@@ -134,6 +134,17 @@ defmodule ExJoi.Validator do
     end
   end
 
+  defp validate_value(value, %Rule{type: :array} = rule) do
+    with {:ok, list} <- coerce_array(value, rule.delimiter),
+         [] <- array_constraint_errors(list, rule),
+         {:ok, coerced_list} <- validate_array_elements(list, rule.of) do
+      {:ok, coerced_list}
+    else
+      {:error, errors} -> {:error, errors}
+      errors when is_list(errors) -> {:error, errors}
+    end
+  end
+
   defp validate_value(value, %Rule{type: :object, schema: %Schema{} = schema}) do
     if is_map(value) do
       case validate(value, schema) do
@@ -218,6 +229,58 @@ defmodule ExJoi.Validator do
         _ -> acc
       end
     end)
+  end
+
+  defp coerce_array(value, _delimiter) when is_list(value), do: {:ok, value}
+
+  defp coerce_array(value, delimiter) when is_binary(value) and is_binary(delimiter) do
+    list =
+      value
+      |> String.split(delimiter)
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+
+    {:ok, list}
+  end
+
+  defp coerce_array(_value, _delimiter), do: {:error, [error(:array, "must be an array/list")]}
+
+  defp array_constraint_errors(list, %Rule{} = rule) do
+    count = length(list)
+
+    []
+    |> maybe_add(not is_nil(rule.min_items) and count < rule.min_items, fn ->
+      error(:array_min_items, "must contain at least #{rule.min_items} items", %{min_items: rule.min_items})
+    end)
+    |> maybe_add(not is_nil(rule.max_items) and count > rule.max_items, fn ->
+      error(:array_max_items, "must contain at most #{rule.max_items} items", %{max_items: rule.max_items})
+    end)
+    |> maybe_add(rule.unique && count != length(Enum.uniq(list)), fn ->
+      error(:array_unique, "must contain unique items")
+    end)
+  end
+
+  defp validate_array_elements(list, nil), do: {:ok, list}
+
+  defp validate_array_elements(list, %Rule{} = rule) do
+    {errors, values} =
+      list
+      |> Enum.with_index()
+      |> Enum.reduce({%{}, []}, fn {item, idx}, {err_acc, val_acc} ->
+        case validate_value(item, rule) do
+          {:ok, coerced} ->
+            {err_acc, [coerced | val_acc]}
+
+          {:error, element_errors} ->
+            {Map.put(err_acc, idx, element_errors), val_acc}
+        end
+      end)
+
+    if map_size(errors) == 0 do
+      {:ok, Enum.reverse(values)}
+    else
+      {:error, errors}
+    end
   end
 
   defp error(code, message, meta \\ %{}) do
