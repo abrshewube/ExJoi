@@ -18,11 +18,16 @@ defmodule ExJoi.Rule do
     integer: false,
     truthy: nil,
     falsy: nil,
-    schema: nil
+    schema: nil,
+    of: nil,
+    min_items: nil,
+    max_items: nil,
+    unique: false,
+    delimiter: ","
   ]
 
   @type t :: %__MODULE__{
-          type: :string | :number | :boolean | :object,
+          type: :string | :number | :boolean | :object | :array,
           required: boolean(),
           min: integer() | float() | nil,
           max: integer() | float() | nil,
@@ -31,6 +36,11 @@ defmodule ExJoi.Rule do
           integer: boolean(),
           truthy: list() | nil,
           falsy: list() | nil,
-          schema: ExJoi.Schema.t() | nil
+          schema: ExJoi.Schema.t() | nil,
+          of: __MODULE__.t() | nil,
+          min_items: non_neg_integer() | nil,
+          max_items: non_neg_integer() | nil,
+          unique: boolean(),
+          delimiter: String.t() | nil
         }
 end

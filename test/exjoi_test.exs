@@ -202,5 +202,39 @@ defmodule ExJoiTest do
       assert {:ok, %{active: false, settings: %{timezone: "UTC"}}} =
                ExJoi.validate(%{active: false}, schema)
     end
+
+    test "validates array fields with constraints" do
+      schema =
+        ExJoi.schema(%{
+          tags: ExJoi.array(of: ExJoi.string(min: 3), min_items: 1, max_items: 3, unique: true)
+        })
+
+      assert {:ok, %{tags: ["one", "two"]}} = ExJoi.validate(%{tags: ["one", "two"]}, schema)
+
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{tags: []}, schema)
+      assert Enum.any?(errors.tags, &(&1.code == :array_min_items))
+
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{tags: ["one", "two", "three", "four"]}, schema)
+      assert Enum.any?(errors.tags, &(&1.code == :array_max_items))
+
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{tags: ["dup", "dup"]}, schema)
+      assert Enum.any?(errors.tags, &(&1.code == :array_unique))
+
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{tags: ["ok", "no"]}, schema)
+      assert [%{code: :string_min}] = errors.tags[0]
+    end
+
+    test "coerces delimited strings into arrays before validation" do
+      schema =
+        ExJoi.schema(%{
+          friends: ExJoi.array(of: ExJoi.string(min: 3), delimiter: ";")
+        })
+
+      assert {:ok, %{friends: ["Ana", "Bea", "Clara"]}} =
+               ExJoi.validate(%{friends: "Ana; Bea ; Clara"}, schema)
+
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{friends: "Ana;Li"}, schema)
+      assert [%{code: :string_min}] = errors.friends[1]
+    end
   end
 end
