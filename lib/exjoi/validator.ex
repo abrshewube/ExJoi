@@ -12,9 +12,11 @@ defmodule ExJoi.Validator do
 
   Returns `{:ok, validated_data}` if validation passes, or `{:error, errors}` if it fails.
   """
-  def validate(data, %Schema{fields: fields}) when is_map(data) do
+  def validate(data, %Schema{fields: fields, defaults: defaults}) when is_map(data) do
+    data_with_defaults = apply_defaults(data, defaults)
+
     {errors, coerced_data} =
-      Enum.reduce(fields, {%{}, data}, fn {field_name, rule}, {error_acc, data_acc} ->
+      Enum.reduce(fields, {%{}, data_with_defaults}, fn {field_name, rule}, {error_acc, data_acc} ->
         case validate_field(data_acc, field_name, rule) do
           {:ok, :missing} ->
             {error_acc, data_acc}
@@ -48,8 +50,11 @@ defmodule ExJoi.Validator do
 
       {:ok, key, value} ->
         case validate_value(value, rule) do
-          {:ok, coerced} -> {:ok, {key, coerced}}
-          {:error, errors} -> {:error, errors}
+          {:ok, coerced} ->
+            {:ok, {key, coerced}}
+
+          {:error, errors} ->
+            {:error, errors}
         end
     end
   end
@@ -129,6 +134,20 @@ defmodule ExJoi.Validator do
     end
   end
 
+  defp validate_value(value, %Rule{type: :object, schema: %Schema{} = schema}) do
+    if is_map(value) do
+      case validate(value, schema) do
+        {:ok, coerced} ->
+          {:ok, coerced}
+
+        {:error, %{errors: nested_errors}} ->
+          {:error, nested_errors}
+      end
+    else
+      {:error, [error(:object, "must be an object/map")]}
+    end
+  end
+
   defp ensure_string(value) when is_binary(value), do: :ok
   defp ensure_string(_value), do: {:error, [error(:string, "must be a string")]}
 
@@ -188,6 +207,18 @@ defmodule ExJoi.Validator do
   defp maybe_add(errors, false, _fun), do: errors
   defp maybe_add(errors, nil, _fun), do: errors
   defp maybe_add(errors, true, fun), do: errors ++ [fun.()]
+
+  defp apply_defaults(data, defaults) when map_size(defaults) == 0, do: data
+
+  defp apply_defaults(data, defaults) do
+    defaults
+    |> Enum.reduce(data, fn {key, default_value}, acc ->
+      case fetch_field_value(acc, key) do
+        :missing -> Map.put(acc, key, default_value)
+        _ -> acc
+      end
+    end)
+  end
 
   defp error(code, message, meta \\ %{}) do
     %{code: code, message: message, meta: meta}

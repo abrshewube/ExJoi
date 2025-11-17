@@ -9,10 +9,12 @@ defmodule ExJoi.Schema do
   """
 
   defstruct [
-    :fields
+    :fields,
+    defaults: %{}
   ]
 
   @type t :: %__MODULE__{
-          fields: %{(atom() | String.t()) => ExJoi.Rule.t()}
+          fields: %{(atom() | String.t()) => ExJoi.Rule.t()},
+          defaults: map()
         }
 end
