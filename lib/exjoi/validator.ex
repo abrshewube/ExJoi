@@ -3,7 +3,9 @@ defmodule ExJoi.Validator do
   Core validation engine that validates data against schemas.
   """
 
-  alias ExJoi.{Rule, Schema}
+  alias ExJoi.{Config, Rule, Schema}
+  @type error :: %{code: atom(), message: String.t(), meta: map()}
+
   alias DateTime
   alias NaiveDateTime
   alias Date
@@ -200,6 +202,17 @@ defmodule ExJoi.Validator do
 
       _ ->
         {:ok, value}
+    end
+  end
+
+  defp validate_value(value, %Rule{type: {:custom, type_name}, custom_opts: opts} = rule, convert, data) do
+    case Config.fetch_type(type_name) do
+      nil ->
+        {:error, [error(:custom_type, "unknown custom type #{type_name}")]}
+
+      validator ->
+        context = %{convert: convert, data: data, opts: opts}
+        run_custom_validator(validator, value, rule, context)
     end
   end
 
@@ -495,9 +508,61 @@ defmodule ExJoi.Validator do
   end
 
   defp format_errors(errors) do
+    Config.error_builder().(errors)
+  end
+
+  def default_error_builder(errors) do
     %{
       message: "Validation failed",
       errors: errors
     }
+  end
+
+  defp run_custom_validator({:module, module}, value, rule, context) when is_atom(module) do
+    ensure_module_validator!(module)
+    module.validate(value, rule, context)
+    |> normalize_custom_result(value)
+  end
+
+  defp run_custom_validator({:function, fun}, value, rule, context) do
+    result =
+      case :erlang.fun_info(fun, :arity) do
+        {:arity, 1} -> fun.(value)
+        {:arity, 2} -> fun.(value, context)
+        {:arity, 3} -> fun.(value, rule, context)
+        _ -> raise ArgumentError, "Custom validator functions must have arity 1..3"
+      end
+
+    normalize_custom_result(result, value)
+  end
+
+  defp run_custom_validator(_, _value, _rule, _context) do
+    {:error, [error(:custom_type, "invalid custom validator configuration")]}
+  end
+
+  defp ensure_module_validator!(module) do
+    unless function_exported?(module, :validate, 3) do
+      raise ArgumentError,
+            "#{inspect(module)} must implement ExJoi.CustomValidator.validate/3"
+    end
+  end
+
+  defp normalize_custom_result(:ok, value), do: {:ok, value}
+  defp normalize_custom_result({:ok, new_value}, _value), do: {:ok, new_value}
+
+  defp normalize_custom_result({:error, errors}, _value) when is_list(errors) do
+    {:error, errors}
+  end
+
+  defp normalize_custom_result({:error, error}, _value) do
+    {:error, List.wrap(error)}
+  end
+
+  defp normalize_custom_result(other, value) do
+    case other do
+      {:ok, new_value} -> {:ok, new_value}
+      :ok -> {:ok, value}
+      _ -> {:error, [error(:custom_type, "invalid custom validator response")]}
+    end
   end
 end

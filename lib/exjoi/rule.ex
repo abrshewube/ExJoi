@@ -24,7 +24,8 @@ defmodule ExJoi.Rule do
     max_items: nil,
     unique: false,
     delimiter: ",",
-    conditional: nil
+    conditional: nil,
+    custom_opts: []
   ]
 
   @type t :: %__MODULE__{
@@ -43,6 +44,7 @@ defmodule ExJoi.Rule do
           max_items: non_neg_integer() | nil,
           unique: boolean(),
           delimiter: String.t() | nil,
-          conditional: map() | nil
+          conditional: map() | nil,
+          custom_opts: keyword()
         }
 end

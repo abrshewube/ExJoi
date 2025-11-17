@@ -2,6 +2,11 @@ defmodule ExJoiTest do
   use ExUnit.Case
   doctest ExJoi
 
+  setup do
+    ExJoi.Config.reset!()
+    :ok
+  end
+
   describe "basic validation" do
     test "validates string field" do
       schema = ExJoi.schema(%{
@@ -347,6 +352,69 @@ defmodule ExJoiTest do
                ExJoi.validate(%{plan: "pro-plus", pro_feature_flag: true}, schema)
 
       assert {:ok, %{}} = ExJoi.validate(%{plan: "starter"}, schema)
+    end
+  end
+
+  describe "extensions" do
+    defmodule UUIDValidator do
+      @behaviour ExJoi.CustomValidator
+
+      @impl true
+      def validate(value, _rule, _context) when is_binary(value) do
+        if String.match?(value, ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) do
+          {:ok, String.downcase(value)}
+        else
+          {:error, [%{code: :uuid, message: "must be a UUID"}]}
+        end
+      end
+
+      def validate(value, _rule, _context) do
+        {:error, [%{code: :uuid, message: "must be a UUID", meta: %{value: value}}]}
+      end
+    end
+
+    test "custom validator function" do
+      ExJoi.extend(:uuid, fn value, _context ->
+        if String.length(value) == 3 do
+          {:ok, String.upcase(value)}
+        else
+          {:error, [%{code: :uuid, message: "must be exactly 3 characters"}]}
+        end
+      end)
+
+      schema =
+        ExJoi.schema(%{
+          id: ExJoi.custom(:uuid, required: true)
+        })
+
+      assert {:ok, %{id: "ABC"}} = ExJoi.validate(%{id: "abc"}, schema)
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{id: "nope"}, schema)
+      assert [%{code: :uuid}] = errors.id
+    end
+
+    test "custom validator module receives context" do
+      ExJoi.extend(:uuid_mod, UUIDValidator)
+
+      schema =
+        ExJoi.schema(%{
+          id: ExJoi.custom(:uuid_mod, required: true)
+        })
+
+      assert {:ok, %{id: "abc12345-abcd-abcd-abcd-abcdef123456"}} =
+               ExJoi.validate(%{id: "ABC12345-ABCD-ABCD-ABCD-ABCDEF123456"}, schema)
+    end
+
+    test "error builder override" do
+      ExJoi.configure(
+        error_builder: fn errors ->
+          %{status: :failed, issues: errors}
+        end
+      )
+
+      schema = ExJoi.schema(%{name: ExJoi.string(required: true)})
+
+      assert {:error, %{status: :failed, issues: issues}} = ExJoi.validate(%{}, schema)
+      assert Map.has_key?(issues, :name)
     end
   end
 end
