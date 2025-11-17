@@ -11,6 +11,7 @@ ExJoi brings a Joi-inspired DSL to Elixir, letting you describe data rules once 
 - GitHub · https://github.com/abrshewube/ExJoi
 - HexDocs (v0.7.0) · https://hexdocs.pm/exjoi/0.7.0
 - Hex Package · https://hex.pm/packages/exjoi
+- Tailwind Docs Site · `docs_site/index.html`
 
 ---
 

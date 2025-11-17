@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ExJoi · Real-time Docs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js"></script>
+    <style>
+      .section-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: rgb(148 163 184);
+      }
+      .section-title {
+        margin-top: 0.25rem;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #fff;
+      }
+      .docs-section {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .feature-card {
+        border-radius: 1.5rem;
+        border: 1px solid rgb(30 41 59);
+        background: rgba(15, 23, 42, 0.4);
+        padding: 1.5rem;
+        box-shadow: 0 20px 40px rgba(2, 6, 23, 0.5);
+      }
+      .feature-card h3 {
+        font-weight: 600;
+        margin-bottom: 0.35rem;
+        color: #fff;
+      }
+      .feature-card p {
+        color: rgb(148 163 184);
+        font-size: 0.95rem;
+      }
+      .code-card {
+        border-radius: 1.5rem;
+        border: 1px solid rgb(30 41 59);
+        background: rgba(2, 6, 23, 0.6);
+        overflow: hidden;
+        box-shadow: 0 20px 45px rgba(2, 6, 23, 0.6);
+      }
+      .code-card pre {
+        padding: 1rem;
+        overflow-x: auto;
+        font-size: 0.9rem;
+      }
+      .code-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(15, 23, 42, 0.6);
+        padding: 0.65rem 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        font-size: 0.65rem;
+        color: rgb(148 163 184);
+      }
+      .copy-btn {
+        border-radius: 9999px;
+        border: 1px solid rgb(51 65 85);
+        padding: 0.2rem 0.9rem;
+        font-size: 0.7rem;
+        color: rgb(226 232 240);
+        transition: background 0.2s ease;
+      }
+      .copy-btn:hover {
+        background: rgba(30, 41, 59, 0.6);
+      }
+    </style>
+  </head>
+  <body class="bg-slate-950 text-slate-100 antialiased">
+    <div class="flex min-h-screen">
+      <aside class="w-72 border-r border-slate-800 bg-slate-900/70 backdrop-blur-xl sticky top-0 max-h-screen overflow-y-auto p-6 hidden lg:block">
+        <div class="flex items-center space-x-3 mb-8">
+          <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-400 to-emerald-400 flex items-center justify-center text-slate-950 font-black">J</div>
+          <div>
+            <p class="text-lg font-semibold">ExJoi</p>
+            <p class="text-slate-400 text-sm">Validation, elevated.</p>
+          </div>
+        </div>
+        <nav class="space-y-1 text-sm">
+          <a href="#overview" class="nav-link">Overview</a>
+          <a href="#quick-start" class="nav-link">Quick Start</a>
+          <a href="#convert-mode" class="nav-link">Convert Mode</a>
+          <a href="#conditional-rules" class="nav-link">Conditional Rules</a>
+          <a href="#custom-validators" class="nav-link">Custom Validators</a>
+          <a href="#live-playground" class="nav-link">Live Playground</a>
+          <a href="#roadmap" class="nav-link">Roadmap</a>
+        </nav>
+      </aside>
+
+      <main class="flex-1 px-6 py-10 lg:px-16 space-y-16">
+        <header class="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900/60 to-slate-900/20 p-10 shadow-2xl">
+          <p class="inline-flex items-center rounded-full border border-slate-700 px-3 py-1 text-xs uppercase tracking-widest text-slate-400">
+            v0.7 · Custom validators + plugins
+          </p>
+          <h1 class="mt-4 text-4xl font-black text-white">ExJoi brings expressive, real-time validation to Elixir.</h1>
+          <p class="mt-4 max-w-3xl text-lg text-slate-300">
+            Schema-first DSL. Convert mode. Conditional rules. Custom validators. All packaged with an extendable runtime so your product teams can ship cohesive validations everywhere.
+          </p>
+          <div class="mt-8 flex flex-wrap gap-4">
+            <a href="https://hexdocs.pm/exjoi/0.7.0" class="inline-flex items-center rounded-full bg-white px-5 py-2 font-semibold text-slate-900 shadow-lg shadow-sky-500/40">
+              View HexDocs
+            </a>
+            <a href="https://github.com/abrshewube/ExJoi" class="inline-flex items-center rounded-full border border-slate-700 px-5 py-2 font-semibold text-slate-100">
+              GitHub
+            </a>
+          </div>
+        </header>
+
+        <section id="overview" class="space-y-4">
+          <p class="section-label">Overview</p>
+          <h2 class="section-title">Why teams adopt ExJoi</h2>
+          <div class="grid gap-6 md:grid-cols-3">
+            <article class="feature-card">
+              <h3>Schema-first DSL</h3>
+              <p>Declarative helpers for strings, numbers, booleans, objects, arrays, dates, and conditionals.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Convert &amp; extend</h3>
+              <p>Toggle convert mode per validation and register custom validators via <code>ExJoi.extend/2</code>.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Custom error builders</h3>
+              <p>Shape errors to match your API contracts with <code>ExJoi.configure(error_builder: ...)</code>.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="quick-start" class="docs-section">
+          <div>
+            <p class="section-label">Quick Start</p>
+            <h2 class="section-title">Install &amp; Validate</h2>
+          </div>
+          <div class="code-card">
+            <div class="code-header">
+              <span>mix.exs</span>
+              <button class="copy-btn" data-clipboard-target="#deps-snippet">Copy</button>
+            </div>
+            <pre><code id="deps-snippet">defp deps do
+  [
+    {:exjoi, "~> 0.7.0"}
+  ]
+end</code></pre>
+          </div>
+          <div class="code-card">
+            <div class="code-header">
+              <span>Schema</span>
+              <button class="copy-btn" data-clipboard-target="#schema-snippet">Copy</button>
+            </div>
+            <pre><code id="schema-snippet">schema =
+  ExJoi.schema(%{
+    role: ExJoi.string(required: true),
+    friends: ExJoi.array(of: ExJoi.string(min: 3), min_items: 1, unique: true),
+    permissions:
+      ExJoi.when(
+        :role,
+        is: "admin",
+        then: ExJoi.array(of: ExJoi.string(), min_items: 1, required: true),
+        otherwise: ExJoi.array(of: ExJoi.string())
+      )
+  })</code></pre>
+          </div>
+        </section>
+
+        <section id="convert-mode" class="docs-section">
+          <div>
+            <p class="section-label">Convert Mode</p>
+            <h2 class="section-title">Automatic casting when you want it</h2>
+            <p class="mt-2 text-slate-400">
+              Pass <code>convert: true</code> to coerce strings into numbers, booleans, arrays (via delimiters), and ISO dates. Default strict mode keeps types honest.
+            </p>
+          </div>
+          <div class="code-card">
+            <div class="code-header">
+              <span>Convert Mode</span>
+              <button class="copy-btn" data-clipboard-target="#convert-snippet">Copy</button>
+            </div>
+            <pre><code id="convert-snippet">params = %{"age" => "42", "active" => "true", "onboarded_at" => "2025-01-01T00:00:00Z"}
+ExJoi.validate(params, schema, convert: true)
+# {:ok, %{"age" => 42, "active" => true, "onboarded_at" => ~U[2025-01-01 00:00:00Z]}}</code></pre>
+          </div>
+        </section>
+
+        <section id="conditional-rules" class="docs-section">
+          <div>
+            <p class="section-label">Conditional Rules</p>
+            <h2 class="section-title">Dynamic validation via <code>ExJoi.when/3</code></h2>
+          </div>
+          <div class="grid gap-6 md:grid-cols-2">
+            <article class="border border-slate-800 rounded-2xl p-5 bg-slate-900/40">
+              <h3 class="font-semibold mb-2 text-white">Field-driven</h3>
+              <p class="text-slate-400 mb-4">Switch validators based on another field’s value, range, or regex pattern.</p>
+              <pre><code>guardian_contact:
+  ExJoi.when(
+    :age,
+    max: 17,
+    then: ExJoi.string(required: true, min: 5)
+  )</code></pre>
+            </article>
+            <article class="border border-slate-800 rounded-2xl p-5 bg-slate-900/40">
+              <h3 class="font-semibold mb-2 text-white">Regex-driven</h3>
+              <p class="text-slate-400 mb-4">Use `:matches` for plan tiers, locales, or SKU prefixes.</p>
+              <pre><code>pro_feature_flag:
+  ExJoi.when(
+    :plan,
+    matches: ~r/^pro/i,
+    then: ExJoi.boolean(required: true),
+    otherwise: ExJoi.boolean()
+  )</code></pre>
+            </article>
+          </div>
+        </section>
+
+        <section id="custom-validators" class="docs-section">
+          <div>
+            <p class="section-label">Custom Validators</p>
+            <h2 class="section-title">Extend ExJoi for your domain</h2>
+          </div>
+          <div class="grid gap-6 lg:grid-cols-2">
+            <div class="code-card">
+              <div class="code-header">
+                <span>Function-based validator</span>
+                <button class="copy-btn" data-clipboard-target="#extend-snippet">Copy</button>
+              </div>
+              <pre><code id="extend-snippet">ExJoi.extend(:uuid, fn value ->
+  if Regex.match?(~r/^[0-9a-f-]{32}$/i, value) do
+    {:ok, String.downcase(value)}
+  else
+    {:error, [%{code: :uuid, message: "must be a UUID"}]}
+  end
+end)
+
+schema = ExJoi.schema(%{id: ExJoi.custom(:uuid, required: true)})</code></pre>
+            </div>
+            <div class="border border-slate-800 rounded-3xl p-6 bg-slate-900/40">
+              <h3 class="font-semibold text-white">Module-based validator</h3>
+              <p class="text-slate-400 mb-4">Implement <code>ExJoi.CustomValidator</code> to reuse logic.</p>
+              <pre><code>defmodule MyApp.UUIDValidator do
+  @behaviour ExJoi.CustomValidator
+
+  def validate(value, _rule, _ctx) do
+    case Ecto.UUID.cast(value) do
+      {:ok, uuid} -> {:ok, uuid}
+      :error -> {:error, [%{code: :uuid, message: "invalid UUID"}]}
+    end
+  end
+end</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section id="live-playground" class="docs-section">
+          <div>
+            <p class="section-label">Live Playground</p>
+            <h2 class="section-title">Try schema logic in real time</h2>
+            <p class="text-slate-400 mt-2">
+              Toggle role and permissions to preview which branch of <code>ExJoi.when/3</code> activates. This is a conceptual helper—hook it into your own validation pipeline.
+            </p>
+          </div>
+          <div class="rounded-3xl border border-slate-800 bg-slate-900/40 p-6">
+            <div class="grid gap-4 md:grid-cols-2">
+              <div class="space-y-4">
+                <label class="block">
+                  <span class="text-sm text-slate-400">Role</span>
+                  <select id="role-input" class="mt-1 w-full rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2 text-white">
+                    <option value="admin">admin</option>
+                    <option value="editor">editor</option>
+                    <option value="viewer">viewer</option>
+                  </select>
+                </label>
+                <label class="block">
+                  <span class="text-sm text-slate-400">Permissions (comma separated)</span>
+                  <input id="permissions-input" class="mt-1 w-full rounded-2xl border border-slate-700 bg-slate-900 px-3 py-2 text-white" value="read,write" />
+                </label>
+                <button id="simulate-btn" class="w-full rounded-2xl bg-gradient-to-r from-sky-500 to-emerald-400 py-2 font-semibold text-slate-950">
+                  Simulate Validation
+                </button>
+              </div>
+              <div>
+                <p class="text-sm text-slate-400 mb-2">Result</p>
+                <pre class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm" id="playground-output">
+// Change inputs and click “Simulate Validation”</pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="roadmap" class="docs-section">
+          <div>
+            <p class="section-label">Roadmap</p>
+            <h2 class="section-title">Version milestones</h2>
+          </div>
+          <div class="overflow-hidden rounded-3xl border border-slate-800">
+            <table class="min-w-full divide-y divide-slate-800 text-left text-sm">
+              <thead class="bg-slate-900/60 text-slate-400 uppercase text-xs tracking-widest">
+                <tr>
+                  <th class="px-6 py-3">Version</th>
+                  <th class="px-6 py-3">Status</th>
+                  <th class="px-6 py-3">Highlights</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800">
+                <tr class="bg-white/5">
+                  <td class="px-6 py-4 font-semibold">7 (current)</td>
+                  <td class="px-6 py-4 text-emerald-400">Shipped</td>
+                  <td class="px-6 py-4">Custom validators, plugin registry, error builder overrides</td>
+                </tr>
+                <tr>
+                  <td class="px-6 py-4 font-semibold">6</td>
+                  <td class="px-6 py-4 text-emerald-400">Shipped</td>
+                  <td class="px-6 py-4">Conditional rules with <code>ExJoi.when/3</code></td>
+                </tr>
+                <tr>
+                  <td class="px-6 py-4 font-semibold">5</td>
+                  <td class="px-6 py-4 text-emerald-400">Shipped</td>
+                  <td class="px-6 py-4">Convert mode (numbers, booleans, dates), <code>ExJoi.date/1</code></td>
+                </tr>
+                <tr>
+                  <td class="px-6 py-4 font-semibold">4</td>
+                  <td class="px-6 py-4 text-emerald-400">Shipped</td>
+                  <td class="px-6 py-4">Array validation (length, uniqueness, delimiter coercion)</td>
+                </tr>
+                <tr>
+                  <td class="px-6 py-4 font-semibold">Next</td>
+                  <td class="px-6 py-4 text-slate-300">In design</td>
+                  <td class="px-6 py-4">Conditional rules + plugins working together with async validation</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <footer class="py-10 text-center text-sm text-slate-500">
+          Built with Tailwind, highlight.js, clipboard.js — ExJoi © 2025.
+        </footer>
+      </main>
+    </div>
+
+    <script src="./scripts.js"></script>
+  </body>
+</html>
+
