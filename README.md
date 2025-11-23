@@ -8,11 +8,12 @@ ExJoi brings a Joi-inspired DSL to Elixir, letting you describe data rules once 
 
 ## Quick Links
 
-- GitHub · https://github.com/abrshewube/ExJoi
-- HexDocs (v0.9.0) · https://hexdocs.pm/exjoi/0.9.0
-- **Live Documentation** · https://ex-joi.vercel.app/
-- Hex Package · https://hex.pm/packages/exjoi
-- **Live Documentation** · https://ex-joi.vercel.app/
+<p align="left">
+  <a href="https://github.com/abrshewube/ExJoi">🔗 GitHub</a> •
+  <a href="https://hexdocs.pm/exjoi/0.9.0">📚 HexDocs (v0.9.0)</a> •
+  <a href="https://ex-joi.vercel.app/">🌐 Live Documentation</a> •
+  <a href="https://hex.pm/packages/exjoi">📦 Hex Package</a>
+</p>
 
 ---
 
@@ -246,7 +247,7 @@ Every failure now includes a flattened, path-based structure (`errors_flat`) alo
      "user.email" => ["must be a valid email"],
      "permissions.0" => ["must be at least 3 characters"]
    }
- }}
+}}
 ```
 
 ```elixir
