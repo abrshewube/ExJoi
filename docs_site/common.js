@@ -13,6 +13,7 @@ function getPageTitle(path) {
     "conditional-rules.html": "Conditional Rules",
     "custom-validators.html": "Custom Validators",
     "error-tree.html": "Error Tree",
+    "async-validation.html": "Async Validation",
     "playground.html": "Playground",
   };
   return titles[path] || "Documentation";
@@ -44,11 +45,12 @@ function renderHeader() {
               <a href="conditional-rules.html" data-nav="conditional-rules.html" class="nav-link-header">Conditionals</a>
               <a href="custom-validators.html" data-nav="custom-validators.html" class="nav-link-header">Custom</a>
               <a href="error-tree.html" data-nav="error-tree.html" class="nav-link-header">Errors</a>
+              <a href="async-validation.html" data-nav="async-validation.html" class="nav-link-header">Async</a>
               <a href="playground.html" data-nav="playground.html" class="nav-link-header">Playground</a>
             </nav>
             
             <div class="flex items-center space-x-3">
-              <a href="https://hexdocs.pm/exjoi/0.8.0" target="_blank" class="hidden sm:inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-sky-500 to-emerald-400 text-slate-950 font-semibold text-sm hover:shadow-lg hover:shadow-sky-500/30 transition-all">
+              <a href="https://hexdocs.pm/exjoi/0.9.0" target="_blank" class="hidden sm:inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-sky-500 to-emerald-400 text-slate-950 font-semibold text-sm hover:shadow-lg hover:shadow-sky-500/30 transition-all">
                 HexDocs
               </a>
               <a href="https://github.com/abrshewube/ExJoi" target="_blank" class="hidden sm:inline-flex items-center px-4 py-2 rounded-full border border-slate-700 text-slate-300 font-semibold text-sm hover:bg-slate-800 hover:border-slate-600 transition-all">
@@ -129,6 +131,12 @@ function renderSidebar() {
             </svg>
             <span>Custom Validators</span>
           </a>
+          <a href="async-validation.html" data-nav="async-validation.html" class="sidebar-nav-link">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+            <span>Async Validation</span>
+          </a>
           <a href="playground.html" data-nav="playground.html" class="sidebar-nav-link">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
@@ -163,7 +171,7 @@ function renderFooter() {
           <div>
             <h3 class="font-semibold text-white mb-4">Resources</h3>
             <ul class="space-y-2 text-sm">
-              <li><a href="https://hexdocs.pm/exjoi/0.8.0" target="_blank" class="text-slate-400 hover:text-sky-400 transition-colors">HexDocs</a></li>
+              <li><a href="https://hexdocs.pm/exjoi/0.9.0" target="_blank" class="text-slate-400 hover:text-sky-400 transition-colors">HexDocs</a></li>
               <li><a href="https://github.com/abrshewube/ExJoi" target="_blank" class="text-slate-400 hover:text-sky-400 transition-colors">GitHub</a></li>
               <li><a href="index.html#roadmap" class="text-slate-400 hover:text-sky-400 transition-colors">Roadmap</a></li>
             </ul>
@@ -171,8 +179,8 @@ function renderFooter() {
           
           <div>
             <h3 class="font-semibold text-white mb-4">Version</h3>
-            <p class="text-sm text-slate-400 mb-2">Current: <span class="text-sky-400 font-semibold">v0.8.0</span></p>
-            <p class="text-xs text-slate-500">Error tree + translations</p>
+            <p class="text-sm text-slate-400 mb-2">Current: <span class="text-sky-400 font-semibold">v0.9.0</span></p>
+            <p class="text-xs text-slate-500">Async validation + parallel processing</p>
           </div>
         </div>
         

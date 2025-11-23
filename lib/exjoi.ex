@@ -303,7 +303,7 @@ defmodule ExJoi do
         timeout: 3000
       )
   """
-  def async(rule, async_fn, opts \\ []) when is_function(async_fn, 2) do
+  def async(%Rule{} = rule, async_fn, opts \\ []) when is_function(async_fn, 2) do
     %Rule{
       rule
       | async: async_fn,

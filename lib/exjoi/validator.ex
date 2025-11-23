@@ -165,7 +165,8 @@ defmodule ExJoi.Validator do
   end
 
   defp validate_field_async(data, field_name, %Rule{async: async_fn, timeout: rule_timeout} = rule, convert, default_timeout) do
-    timeout = rule_timeout || default_timeout
+    # Use rule timeout if specified, otherwise use default timeout
+    timeout = if rule_timeout, do: rule_timeout, else: default_timeout
 
     case fetch_field_value(data, field_name) do
       :missing when rule.required ->
@@ -180,28 +181,36 @@ defmodule ExJoi.Validator do
           {:error, errors} ->
             {:error, errors}
 
-          {:ok, _} ->
+          {:ok, validated_value} ->
             # Then run async validation
             context = %{convert: convert, data: data, custom_opts: rule.custom_opts}
 
-            case async_fn.(value, context) do
-              {:ok, validated_value} ->
-                {:ok, {key, validated_value}}
+            case async_fn.(validated_value, context) do
+              {:ok, final_value} ->
+                {:ok, {key, final_value}}
 
               {:error, errors} when is_list(errors) ->
                 {:error, errors}
 
-              task when elem(task, 0) == Task ->
+              %Task{} = task ->
                 # Task returned, await it with timeout
-                case Task.await(task, timeout) do
-                  {:ok, validated_value} ->
-                    {:ok, {key, validated_value}}
+                try do
+                  case Task.await(task, timeout) do
+                    {:ok, final_value} ->
+                      {:ok, {key, final_value}}
 
-                  {:error, errors} when is_list(errors) ->
-                    {:error, errors}
+                    {:error, errors} when is_list(errors) ->
+                      {:error, errors}
 
-                  other ->
-                    {:error, [error(:async_validation, "async validation returned unexpected result: #{inspect(other)}")]}
+                    other ->
+                      {:error, [error(:async_validation, "async validation returned unexpected result: #{inspect(other)}")]}
+                  end
+                catch
+                  :exit, {:timeout, _} ->
+                    {:error, [error(:async_timeout, "async validation timed out after #{timeout}ms")]}
+
+                  :exit, reason ->
+                    {:error, [error(:async_error, "async validation failed: #{inspect(reason)}")]}
                 end
 
               other ->
@@ -358,11 +367,15 @@ defmodule ExJoi.Validator do
     end
   end
 
-  defp validate_value(value, %Rule{type: :array} = rule, convert, data) do
+  defp validate_value(value, %Rule{type: :array, of: of_rule} = rule, convert, data) do
     with {:ok, list} <- coerce_array(value, rule.delimiter),
-         [] <- array_constraint_errors(list, rule),
-         {:ok, coerced_list} <- validate_array_elements(list, rule.of, convert, data) do
-      {:ok, coerced_list}
+         [] <- array_constraint_errors(list, rule) do
+      # For async arrays, validate elements in parallel
+      if of_rule && not is_nil(of_rule.async) do
+        validate_array_elements_async(list, of_rule, convert, data, of_rule.timeout || 5000)
+      else
+        validate_array_elements(list, of_rule, convert, data)
+      end
     else
       {:error, errors} -> {:error, errors}
       errors when is_list(errors) -> {:error, errors}
@@ -561,37 +574,48 @@ defmodule ExJoi.Validator do
   defp validate_array_elements_async(list, %Rule{async: async_fn, timeout: timeout} = rule, convert, data, default_timeout) do
     timeout_ms = timeout || default_timeout
 
+    # Create a rule without async for synchronous validation
+    sync_rule = %Rule{rule | async: nil}
+
     results =
       list
       |> Enum.with_index()
       |> Task.async_stream(
         fn {item, idx} ->
-          # First do synchronous validation
-          case validate_value_sync(item, rule, convert, data) do
+          # First do synchronous validation (type and constraints)
+          case validate_value_sync(item, sync_rule, convert, data) do
             {:error, errors} ->
               {:error, idx, errors}
 
-            {:ok, _} ->
+            {:ok, validated_item} ->
               # Then run async validation
               context = %{convert: convert, data: data, custom_opts: rule.custom_opts}
 
-              case async_fn.(item, context) do
-                {:ok, validated_value} ->
-                  {:ok, idx, validated_value}
+              case async_fn.(validated_item, context) do
+                {:ok, final_value} ->
+                  {:ok, idx, final_value}
 
                 {:error, errors} when is_list(errors) ->
                   {:error, idx, errors}
 
-                task when elem(task, 0) == Task ->
-                  case Task.await(task, timeout_ms) do
-                    {:ok, validated_value} ->
-                      {:ok, idx, validated_value}
+                %Task{} = task ->
+                  try do
+                    case Task.await(task, timeout_ms) do
+                      {:ok, final_value} ->
+                        {:ok, idx, final_value}
 
-                    {:error, errors} when is_list(errors) ->
-                      {:error, idx, errors}
+                      {:error, errors} when is_list(errors) ->
+                        {:error, idx, errors}
 
-                    other ->
-                      {:error, idx, [error(:async_validation, "async validation returned unexpected result: #{inspect(other)}")]}
+                      other ->
+                        {:error, idx, [error(:async_validation, "async validation returned unexpected result: #{inspect(other)}")]}
+                    end
+                  catch
+                    :exit, {:timeout, _} ->
+                      {:error, idx, [error(:async_timeout, "async validation timed out after #{timeout_ms}ms")]}
+
+                    :exit, reason ->
+                      {:error, idx, [error(:async_error, "async validation failed: #{inspect(reason)}")]}
                   end
 
                 other ->

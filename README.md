@@ -10,6 +10,7 @@ ExJoi brings a Joi-inspired DSL to Elixir, letting you describe data rules once 
 
 - GitHub · https://github.com/abrshewube/ExJoi
 - HexDocs (v0.9.0) · https://hexdocs.pm/exjoi/0.9.0
+- **Live Documentation** · https://ex-joi.vercel.app/
 - Hex Package · https://hex.pm/packages/exjoi
 - **Live Documentation** · https://ex-joi.vercel.app/
 
@@ -132,7 +133,7 @@ schema =
 | `ExJoi.array`   | `:required`, `:of`, `:min_items`/`:max_items` (aliases `:min`/`:max`), `:unique`, `:delimiter` |
 | `ExJoi.date`    | `:required`                                                                                 |
 | `ExJoi.when`    | `:is`, `:in`, `:matches`, `:min`, `:max`, `:then` (required), `:otherwise`, `:required`     |
-| `ExJoi.async`   | Wraps any rule with async validation function, `:timeout` (milliseconds, default: 5000)     |
+| `ExJoi.async`   | Wraps any rule with async validation function, `:timeout` (milliseconds, default: 5000). Async function receives `(value, context)` and returns `{:ok, value}`, `{:error, [errors]}`, or `%Task{}` |
 
 ```elixir
 ExJoi.string(required: true, min: 3, max: 32, pattern: ~r/^[a-z0-9_]+$/)
@@ -334,7 +335,7 @@ ExJoi.validate(%{emails: ["test@example.com", "user@domain.com"]}, schema)
 
 | Version | Status  | Highlights |
 | ------- | ------- | ---------- |
-| 9       | Current | Async validation with Task.async_stream, external service checks, timeout control, parallel array validation |
+| 9       | Current | Async validation with `Task.async_stream`, external service checks, timeout control, parallel array validation |
 | 8       | Shipped | Path-based error tree, message translator, enhanced error builder |
 | 7       | Shipped | Custom validators/plugins, `ExJoi.extend/2`, error builder overrides |
 | 6       | Shipped | Conditional rules (`ExJoi.when/3`) with field/value/range/regex checks |

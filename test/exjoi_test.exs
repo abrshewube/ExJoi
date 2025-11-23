@@ -522,9 +522,17 @@ defmodule ExJoiTest do
         )
       })
 
-      assert {:error, %{errors: errors}} = ExJoi.validate(%{slow_field: "test"}, schema, timeout: 100)
-      # Should have timeout error
-      assert Map.has_key?(errors, :_async_timeout) || Map.has_key?(errors, :slow_field)
+      result = ExJoi.validate(%{slow_field: "test"}, schema, timeout: 100)
+      assert {:error, %{errors: errors}} = result
+      # Should have timeout error - can be on field or global
+      assert Map.has_key?(errors, :_async_timeout) ||
+             Map.has_key?(errors, :slow_field) ||
+             Map.has_key?(errors, :_async_error)
+
+      # If on field, should have timeout code
+      if Map.has_key?(errors, :slow_field) do
+        assert Enum.any?(errors.slow_field, &(&1.code == :async_timeout))
+      end
     end
 
     test "parallel validation of array items" do
