@@ -21,14 +21,14 @@
       <main class="flex-1 px-6 py-10 lg:px-16 space-y-16 lg:ml-0">
         <header class="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900/60 to-slate-900/20 p-10 shadow-2xl">
           <p class="inline-flex items-center rounded-full border border-slate-700 px-3 py-1 text-xs uppercase tracking-widest text-slate-400">
-            v0.8 · Error tree + translations
+            v0.9 · Async validation + parallel processing
           </p>
           <h1 class="mt-4 text-4xl font-black text-white">ExJoi brings expressive, real-time validation to Elixir.</h1>
           <p class="mt-4 max-w-3xl text-lg text-slate-300">
-            Schema-first DSL. Convert mode. Conditional rules. Custom validators. All packaged with an extendable runtime so your product teams can ship cohesive validations everywhere.
+            Schema-first DSL. Convert mode. Conditional rules. Custom validators. Async validation with parallel processing. All packaged with an extendable runtime so your product teams can ship cohesive validations everywhere.
           </p>
           <div class="mt-8 flex flex-wrap gap-4">
-            <a href="https://hexdocs.pm/exjoi/0.8.0" class="inline-flex items-center rounded-full bg-white px-5 py-2 font-semibold text-slate-900 shadow-lg shadow-sky-500/40">
+            <a href="https://hexdocs.pm/exjoi/0.9.0" class="inline-flex items-center rounded-full bg-white px-5 py-2 font-semibold text-slate-900 shadow-lg shadow-sky-500/40">
               View HexDocs
             </a>
             <a href="https://github.com/abrshewube/ExJoi" class="inline-flex items-center rounded-full border border-slate-700 px-5 py-2 font-semibold text-slate-100">
@@ -52,6 +52,10 @@
             <article class="feature-card">
               <h3>Error tree &amp; translations</h3>
               <p>Consume flattened, path-based errors and global translators for localized messaging.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Async validation</h3>
+              <p>Validate with external services, database lookups, and parallel processing using <code>Task.async_stream</code>.</p>
             </article>
           </div>
         </section>
@@ -83,6 +87,10 @@
               <h3>Error Tree</h3>
               <p>Consume <code>errors_flat</code>, translate copy, and integrate with your API.</p>
             </a>
+            <a class="feature-card hover:bg-slate-900/60 transition" href="async-validation.html">
+              <h3>Async Validation</h3>
+              <p>External service checks, parallel validation, timeout control, and <code>Task.async_stream</code> integration.</p>
+            </a>
             <a class="feature-card hover:bg-slate-900/60 transition" href="playground.html">
               <h3>Playground</h3>
               <p>Live schema demo with convert toggle, conditional logic, and JSON sandbox.</p>
@@ -102,7 +110,7 @@
             </div>
             <pre><code id="deps-snippet">defp deps do
   [
-    {:exjoi, "~> 0.8.0"}
+    {:exjoi, "~> 0.9.0"}
   ]
 end</code></pre>
           </div>
@@ -212,6 +220,49 @@ ExJoi.validate(params, schema, convert: true)
           </div>
         </section>
 
+        <section id="async-validation" class="docs-section">
+          <div>
+            <p class="section-label">Async Validation</p>
+            <h2 class="section-title">Parallel validation with <code>Task.async_stream</code></h2>
+            <p class="mt-2 text-slate-400">
+              Validate with external services, database lookups, and long-running computations. Multiple async fields run in parallel for optimal performance.
+            </p>
+          </div>
+          <div class="grid gap-6 lg:grid-cols-2">
+            <div class="code-card">
+              <div class="code-header">
+                <span>External service check</span>
+                <button class="copy-btn" data-clipboard-target="#async-snippet">Copy</button>
+              </div>
+              <pre><code id="async-snippet">username: ExJoi.async(
+  ExJoi.string(required: true, min: 3),
+  fn value, _ctx ->
+    Task.async(fn ->
+      if UsernameService.available?(value) do
+        {:ok, value}
+      else
+        {:error, [%{code: :username_taken, message: "username is already taken"}]}
+      end
+    end)
+  end,
+  timeout: 3000
+)</code></pre>
+            </div>
+            <div class="border border-slate-800 rounded-3xl p-6 bg-slate-900/40">
+              <h3 class="font-semibold text-white mb-2">Parallel processing</h3>
+              <p class="text-slate-400 mb-4">Multiple async fields validate simultaneously using <code>Task.async_stream</code>.</p>
+              <pre><code># All three run in parallel
+schema = ExJoi.schema(%{
+  username: ExJoi.async(rule1, fn1),
+  email: ExJoi.async(rule2, fn2),
+  api_key: ExJoi.async(rule3, fn3)
+})
+
+ExJoi.validate(data, schema, max_concurrency: 5)</code></pre>
+            </div>
+          </div>
+        </section>
+
         <section id="custom-validators" class="docs-section">
           <div>
             <p class="section-label">Custom Validators</p>
@@ -302,7 +353,12 @@ end</code></pre>
               </thead>
               <tbody class="divide-y divide-slate-800">
                 <tr class="bg-white/5">
-                  <td class="px-6 py-4 font-semibold">8 (current)</td>
+                  <td class="px-6 py-4 font-semibold">9 (current)</td>
+                  <td class="px-6 py-4 text-emerald-400">Shipped</td>
+                  <td class="px-6 py-4">Async validation with <code>Task.async_stream</code>, external service checks, timeout control, parallel array validation</td>
+                </tr>
+                <tr>
+                  <td class="px-6 py-4 font-semibold">8</td>
                   <td class="px-6 py-4 text-emerald-400">Shipped</td>
                   <td class="px-6 py-4">Path-based error tree, translator hooks, enhanced builder</td>
                 </tr>
@@ -329,7 +385,7 @@ end</code></pre>
                 <tr>
                   <td class="px-6 py-4 font-semibold">Next</td>
                   <td class="px-6 py-4 text-slate-300">In design</td>
-                  <td class="px-6 py-4">Async / parallel validation, macro DSL, performance improvements</td>
+                  <td class="px-6 py-4">Macro DSL, compiler, performance improvements</td>
                 </tr>
               </tbody>
             </table>

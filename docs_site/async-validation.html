@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ExJoi · Async Validation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="bg-slate-950 text-slate-100 antialiased">
+    <div id="common-header"></div>
+    <div class="flex min-h-screen pt-16">
+      <div id="common-sidebar"></div>
+
+      <main class="flex-1 px-6 py-10 lg:px-16 space-y-12 pb-16">
+        <section class="docs-section">
+          <p class="hero-badge">Guide</p>
+          <h1 class="section-title text-4xl">Async Validation &amp; Parallel Processing</h1>
+          <p class="text-slate-300 leading-relaxed">
+            Validate data with external services, database lookups, and long-running computations using <code>ExJoi.async/3</code>.
+            ExJoi leverages <code>Task.async_stream</code> to run validations in parallel, dramatically improving performance for multiple async fields.
+          </p>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">API Reference</p>
+            <h2 class="section-title">Async Validation Functions</h2>
+            <p class="text-slate-400 mt-2">Complete reference for async validation in ExJoi.</p>
+          </div>
+
+          <div class="space-y-8">
+            <div class="feature-card">
+              <h3><code>ExJoi.async/3</code></h3>
+              <p class="text-slate-400 mb-4">Wraps an existing rule with an asynchronous validation function. The async function can return <code>{:ok, value}</code>, <code>{:error, errors}</code>, or a <code>Task</code> that will be awaited.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Parameters</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>rule</code> (<code>%ExJoi.Rule{}</code>, required) - The base rule to wrap (e.g., <code>ExJoi.string(required: true)</code>)</li>
+                    <li><code>async_fn</code> (function, required) - Function that performs async validation. Signature: <code>fn(value, context) -> {:ok, value} | {:error, errors} | Task.t()</code></li>
+                    <li><code>opts</code> (keyword list, optional) - Options for async validation</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Options</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:timeout</code> (integer, default: <code>5000</code>) - Maximum time in milliseconds to wait for async validation. Can be overridden by the global <code>:timeout</code> option in <code>ExJoi.validate/3</code>.</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Async Function Signature</p>
+                  <p class="text-slate-400 text-sm mb-2">The async function receives:</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>value</code> (any) - The validated value (after synchronous validation passes)</li>
+                    <li><code>context</code> (map) - Context map containing <code>:convert</code>, <code>:data</code>, <code>:custom_opts</code></li>
+                  </ul>
+                  <p class="text-slate-400 text-sm mt-2">Must return one of:</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>{:ok, validated_value}</code> - Success tuple with validated/normalized value</li>
+                    <li><code>{:error, [error_map, ...]}</code> - Error tuple with list of error maps</li>
+                    <li><code>%Task{}</code> - A Task that will be awaited. The Task should return <code>{:ok, value}</code> or <code>{:error, errors}</code></li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Returns</p>
+                  <p class="text-slate-400 text-sm"><code>%ExJoi.Rule{async: async_fn, timeout: timeout, ...}</code> - A rule with async validation enabled</p>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Validation Flow</p>
+                  <p class="text-slate-400 text-sm mb-2">When validating an async rule:</p>
+                  <ol class="list-decimal pl-6 text-slate-400 space-y-1 text-sm">
+                    <li>Synchronous validation runs first (type checking, constraints like <code>min</code>, <code>max</code>, <code>email</code>)</li>
+                    <li>If synchronous validation passes, the async function is executed</li>
+                    <li>If the async function returns a <code>Task</code>, it is awaited with the configured timeout</li>
+                    <li>Errors from async validation are merged with synchronous errors</li>
+                  </ol>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Examples</span>
+                    <button class="copy-btn" data-clipboard-target="#api-async">Copy</button>
+                  </div>
+                  <pre><code id="api-async"># Simple async validator returning {:ok, value}
+schema = ExJoi.schema(%{
+  username: ExJoi.async(
+    ExJoi.string(required: true, min: 3),
+    fn value, _ctx ->
+      if UsernameService.available?(value) do
+        {:ok, String.downcase(value)}
+      else
+        {:error, [%{code: :username_taken, message: "username is already taken"}]}
+      end
+    end
+  )
+})
+
+# Async validator returning a Task
+schema = ExJoi.schema(%{
+  email: ExJoi.async(
+    ExJoi.string(required: true, email: true),
+    fn value, _ctx ->
+      Task.async(fn ->
+        # Simulate external API call
+        Process.sleep(100)
+        if EmailService.is_valid?(value) do
+          {:ok, value}
+        else
+          {:error, [%{code: :email_invalid, message: "email is not valid"}]}
+        end
+      end)
+    end,
+    timeout: 2000
+  )
+})
+
+# With custom timeout
+schema = ExJoi.schema(%{
+  api_key: ExJoi.async(
+    ExJoi.string(required: true),
+    fn value, _ctx -> ApiKeyService.verify(value) end,
+    timeout: 3000
+  )
+})</code></pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3><code>ExJoi.validate/3</code> with Async Options</h3>
+              <p class="text-slate-400 mb-4">The <code>validate/3</code> function accepts additional options for controlling async validation behavior.</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Options</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li><code>:timeout</code> (integer, optional) - Global timeout in milliseconds for all async validations. Overrides per-rule timeouts if provided.</li>
+                    <li><code>:max_concurrency</code> (integer, default: <code>System.schedulers_online()</code>) - Maximum number of async validations to run in parallel. Controls the concurrency of <code>Task.async_stream</code>.</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-sky-400 mb-1">Parallel Processing</p>
+                  <p class="text-slate-400 text-sm mb-2">When multiple fields have async validation:</p>
+                  <ul class="list-disc pl-6 text-slate-400 space-y-1 text-sm">
+                    <li>All async validations run in parallel using <code>Task.async_stream</code></li>
+                    <li>Array elements with async validation are also validated in parallel</li>
+                    <li>Concurrency is controlled by <code>:max_concurrency</code> option</li>
+                    <li>Timeouts are enforced per validation, not globally</li>
+                  </ul>
+                </div>
+
+                <div class="code-card mt-4">
+                  <div class="code-header">
+                    <span>Examples</span>
+                    <button class="copy-btn" data-clipboard-target="#api-validate-async">Copy</button>
+                  </div>
+                  <pre><code id="api-validate-async"># With global timeout
+ExJoi.validate(data, schema, timeout: 10000)
+
+# With custom concurrency
+ExJoi.validate(data, schema, max_concurrency: 5)
+
+# All options together
+ExJoi.validate(data, schema, 
+  convert: true,
+  timeout: 8000,
+  max_concurrency: 10
+)
+
+# Parallel validation of multiple async fields
+schema = ExJoi.schema(%{
+  username: ExJoi.async(ExJoi.string(), fn v, _ -> check_username(v) end),
+  email: ExJoi.async(ExJoi.string(), fn v, _ -> check_email(v) end),
+  api_key: ExJoi.async(ExJoi.string(), fn v, _ -> verify_key(v) end)
+})
+
+# All three validations run in parallel
+ExJoi.validate(data, schema)</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Real-World Examples</p>
+            <h2 class="section-title">Common Async Validation Patterns</h2>
+            <p class="text-slate-400 mt-2">Practical examples of async validation in production applications.</p>
+          </div>
+
+          <div class="space-y-8">
+            <div class="feature-card">
+              <h3>Username Availability Check</h3>
+              <p class="text-slate-400 mb-4">Check if a username is available by querying a database or external service.</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Example</span>
+                  <button class="copy-btn" data-clipboard-target="#example-username">Copy</button>
+                </div>
+                <pre><code id="example-username">defmodule UserService do
+  def username_available?(username) do
+    # Database query or external API call
+    Repo.get_by(User, username: username) == nil
+  end
+end
+
+schema = ExJoi.schema(%{
+  username: ExJoi.async(
+    ExJoi.string(required: true, min: 3, max: 20),
+    fn value, _ctx ->
+      Task.async(fn ->
+        if UserService.username_available?(value) do
+          {:ok, String.downcase(value)}
+        else
+          {:error, [%{code: :username_taken, message: "username is already taken"}]}
+        end
+      end)
+    end,
+    timeout: 3000
+  )
+})
+
+# Usage
+case ExJoi.validate(%{username: "john_doe"}, schema) do
+  {:ok, data} -> 
+    # Username is available and validated
+    create_user(data)
+  {:error, errors} -> 
+    # Handle errors (e.g., username taken, too short, etc.)
+    render_error(errors)
+end</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>Email Verification Service</h3>
+              <p class="text-slate-400 mb-4">Verify email addresses using an external service like SendGrid or Mailgun.</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Example</span>
+                  <button class="copy-btn" data-clipboard-target="#example-email">Copy</button>
+                </div>
+                <pre><code id="example-email">defmodule EmailVerificationService do
+  def verify_email(email) do
+    # External API call
+    case HTTPoison.get("https://api.email-verify.com/check?email=#{email}") do
+      {:ok, %{status_code: 200, body: body}} ->
+        case Jason.decode(body) do
+          {:ok, %{"valid" => true}} -> {:ok, email}
+          _ -> {:error, [%{code: :email_invalid, message: "email is not valid"}]}
+        end
+      _ -> {:error, [%{code: :email_verification_failed, message: "could not verify email"}]}
+    end
+  end
+end
+
+schema = ExJoi.schema(%{
+  email: ExJoi.async(
+    ExJoi.string(required: true, email: true),
+    fn value, _ctx ->
+      Task.async(fn -> EmailVerificationService.verify_email(value) end)
+    end,
+    timeout: 5000
+  )
+})</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>API Key Validation</h3>
+              <p class="text-slate-400 mb-4">Validate API keys against an external service or database.</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Example</span>
+                  <button class="copy-btn" data-clipboard-target="#example-api-key">Copy</button>
+                </div>
+                <pre><code id="example-api-key">defmodule ApiKeyService do
+  def verify_key(api_key) do
+    case Repo.get_by(ApiKey, key: api_key, active: true) do
+      nil -> {:error, [%{code: :api_key_invalid, message: "invalid API key"}]}
+      key -> 
+        if key.expires_at && DateTime.compare(key.expires_at, DateTime.utc_now()) == :lt do
+          {:error, [%{code: :api_key_expired, message: "API key has expired"}]}
+        else
+          {:ok, api_key}
+        end
+    end
+  end
+end
+
+schema = ExJoi.schema(%{
+  api_key: ExJoi.async(
+    ExJoi.string(required: true),
+    fn value, _ctx ->
+      Task.async(fn -> ApiKeyService.verify_key(value) end)
+    end,
+    timeout: 2000
+  )
+})</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>Parallel Array Validation</h3>
+              <p class="text-slate-400 mb-4">Validate each element of an array asynchronously in parallel.</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Example</span>
+                  <button class="copy-btn" data-clipboard-target="#example-array">Copy</button>
+                </div>
+                <pre><code id="example-array">schema = ExJoi.schema(%{
+  user_ids: ExJoi.array(
+    of: ExJoi.async(
+      ExJoi.string(required: true),
+      fn user_id, _ctx ->
+        Task.async(fn ->
+          case Repo.get(User, user_id) do
+            nil -> {:error, [%{code: :user_not_found, message: "user #{user_id} not found"}]}
+            _user -> {:ok, user_id}
+          end
+        end)
+      end
+    ),
+    required: true,
+    min_items: 1
+  )
+})
+
+# All user_id validations run in parallel
+ExJoi.validate(%{user_ids: ["1", "2", "3"]}, schema, max_concurrency: 5)</code></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Error Handling</p>
+            <h2 class="section-title">Async Validation Errors</h2>
+            <p class="text-slate-400 mt-2">Understanding error codes and handling async validation failures.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="feature-card">
+              <h3>Error Codes</h3>
+              <p class="text-slate-400 mb-4">Async validation introduces new error codes:</p>
+              <div class="overflow-hidden rounded-2xl border border-slate-800">
+                <table class="min-w-full divide-y divide-slate-800 text-left text-sm">
+                  <thead class="bg-slate-900/60 text-slate-400 uppercase text-xs tracking-widest">
+                    <tr>
+                      <th class="px-6 py-3">Code</th>
+                      <th class="px-6 py-3">Description</th>
+                      <th class="px-6 py-3">When It Occurs</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800">
+                    <tr>
+                      <td class="px-6 py-4 font-mono text-sky-400"><code>:async_timeout</code></td>
+                      <td class="px-6 py-4 text-slate-300">Async validation timed out</td>
+                      <td class="px-6 py-4 text-slate-400">When the async function takes longer than the configured timeout</td>
+                    </tr>
+                    <tr>
+                      <td class="px-6 py-4 font-mono text-sky-400"><code>:async_error</code></td>
+                      <td class="px-6 py-4 text-slate-300">Async validation failed with an error</td>
+                      <td class="px-6 py-4 text-slate-400">When the async function raises an exception or returns an unexpected value</td>
+                    </tr>
+                    <tr>
+                      <td class="px-6 py-4 font-mono text-sky-400"><code>:async_validation</code></td>
+                      <td class="px-6 py-4 text-slate-300">Async validation returned errors</td>
+                      <td class="px-6 py-4 text-slate-400">When the async function returns <code>{:error, errors}</code></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>Error Structure</h3>
+              <p class="text-slate-400 mb-4">Async validation errors follow the same structure as synchronous errors:</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Example</span>
+                  <button class="copy-btn" data-clipboard-target="#example-errors">Copy</button>
+                </div>
+                <pre><code id="example-errors"># Timeout error
+{:error, %{
+  username: [%{code: :async_timeout, message: "async validation timed out"}]
+}}
+
+# Custom async error
+{:error, %{
+  email: [%{code: :email_invalid, message: "email is not valid"}]
+}}
+
+# Multiple errors (sync + async)
+{:error, %{
+  username: [
+    %{code: :string_min, message: "must be at least 3 characters"},
+    %{code: :username_taken, message: "username is already taken"}
+  ]
+}}
+
+# Flattened errors
+{:error, %{
+  errors_flat: %{
+    "username" => ["must be at least 3 characters", "username is already taken"]
+  }
+}}</code></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Best Practices</p>
+            <h2 class="section-title">Tips for Async Validation</h2>
+            <p class="text-slate-400 mt-2">Guidelines for writing efficient and reliable async validations.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="feature-card">
+              <h3>1. Set Appropriate Timeouts</h3>
+              <p class="text-slate-400 mb-4">Always set timeouts that match your service's expected response time. Too short and you'll get false timeouts; too long and users wait unnecessarily.</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Example</span>
+                  <button class="copy-btn" data-clipboard-target="#best-timeout">Copy</button>
+                </div>
+                <pre><code id="best-timeout"># Fast database lookup: 1-2 seconds
+username: ExJoi.async(rule, fn, timeout: 2000)
+
+# External API call: 3-5 seconds
+email: ExJoi.async(rule, fn, timeout: 5000)
+
+# Slow external service: 10 seconds
+api_key: ExJoi.async(rule, fn, timeout: 10000)</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>2. Use Parallel Processing</h3>
+              <p class="text-slate-400 mb-4">When validating multiple async fields, ExJoi automatically runs them in parallel. Adjust <code>max_concurrency</code> based on your service limits.</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Example</span>
+                  <button class="copy-btn" data-clipboard-target="#best-parallel">Copy</button>
+                </div>
+                <pre><code id="best-parallel"># Multiple async fields validated in parallel
+schema = ExJoi.schema(%{
+  username: ExJoi.async(rule1, fn1),
+  email: ExJoi.async(rule2, fn2),
+  api_key: ExJoi.async(rule3, fn3)
+})
+
+# Control concurrency to avoid overwhelming external services
+ExJoi.validate(data, schema, max_concurrency: 3)</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>3. Handle Errors Gracefully</h3>
+              <p class="text-slate-400 mb-4">Always return proper error tuples from async functions. Catch exceptions and convert them to error tuples.</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Example</span>
+                  <button class="copy-btn" data-clipboard-target="#best-errors">Copy</button>
+                </div>
+                <pre><code id="best-errors"># Good: Returns error tuple
+fn value, _ctx ->
+  Task.async(fn ->
+    try do
+      case ExternalService.check(value) do
+        {:ok, result} -> {:ok, result}
+        {:error, reason} -> {:error, [%{code: :validation_failed, message: reason}]}
+      end
+    rescue
+      e -> {:error, [%{code: :service_error, message: "service unavailable"}]}
+    end
+  end)
+end
+
+# Bad: Raises exception
+fn value, _ctx ->
+  Task.async(fn ->
+    ExternalService.check!(value)  # May raise
+  end)
+end</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>4. Combine Sync and Async Validation</h3>
+              <p class="text-slate-400 mb-4">Use synchronous validation for fast checks (format, length) and async validation for expensive operations (database, external APIs).</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Example</span>
+                  <button class="copy-btn" data-clipboard-target="#best-combine">Copy</button>
+                </div>
+                <pre><code id="best-combine"># Sync validation runs first (fast)
+# Async validation runs only if sync passes (expensive)
+username: ExJoi.async(
+  ExJoi.string(required: true, min: 3, max: 20, pattern: ~r/^[a-z0-9_]+$/),
+  fn value, _ctx ->
+    # Only runs if format is valid
+    Task.async(fn -> check_availability(value) end)
+  end
+)</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>5. Cache Results When Possible</h3>
+              <p class="text-slate-400 mb-4">For expensive validations, consider caching results to avoid redundant external calls.</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Example</span>
+                  <button class="copy-btn" data-clipboard-target="#best-cache">Copy</button>
+                </div>
+                <pre><code id="best-cache">defmodule CachedValidator do
+  def check_with_cache(value) do
+    case Cache.get("validation:#{value}") do
+      nil ->
+        result = ExternalService.check(value)
+        Cache.put("validation:#{value}", result, ttl: 3600)
+        result
+      cached -> cached
+    end
+  end
+end
+
+schema = ExJoi.schema(%{
+  api_key: ExJoi.async(
+    ExJoi.string(),
+    fn value, _ctx ->
+      Task.async(fn -> CachedValidator.check_with_cache(value) end)
+    end
+  )
+})</code></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-section">
+          <div>
+            <p class="section-label">Troubleshooting</p>
+            <h2 class="section-title">Common Issues &amp; Solutions</h2>
+            <p class="text-slate-400 mt-2">Solutions to common problems when working with async validation.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="feature-card">
+              <h3>Issue: Timeouts Too Frequent</h3>
+              <p class="text-slate-400 mb-4"><strong>Solution:</strong> Increase the timeout value or optimize your async function. Check if your external service is slow or if there's network latency.</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Fix</span>
+                  <button class="copy-btn" data-clipboard-target="#trouble-timeout">Copy</button>
+                </div>
+                <pre><code id="trouble-timeout"># Increase timeout
+ExJoi.async(rule, fn, timeout: 10000)  # 10 seconds instead of 5
+
+# Or set global timeout
+ExJoi.validate(data, schema, timeout: 15000)</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>Issue: Task Not Being Awaited</h3>
+              <p class="text-slate-400 mb-4"><strong>Solution:</strong> Ensure your async function returns a <code>Task</code> or directly returns <code>{:ok, value}</code> / <code>{:error, errors}</code>. ExJoi automatically awaits Tasks.</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Fix</span>
+                  <button class="copy-btn" data-clipboard-target="#trouble-task">Copy</button>
+                </div>
+                <pre><code id="trouble-task"># Good: Returns Task
+fn value, _ctx ->
+  Task.async(fn -> check(value) end)
+end
+
+# Also good: Returns directly
+fn value, _ctx ->
+  check(value)  # Returns {:ok, value} or {:error, errors}
+end
+
+# Bad: Doesn't return Task or tuple
+fn value, _ctx ->
+  Task.start(fn -> check(value) end)  # Returns {:ok, pid}, not awaited
+end</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>Issue: High Memory Usage with Many Async Validations</h3>
+              <p class="text-slate-400 mb-4"><strong>Solution:</strong> Reduce <code>max_concurrency</code> to limit the number of parallel validations. This prevents overwhelming your system or external services.</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Fix</span>
+                  <button class="copy-btn" data-clipboard-target="#trouble-memory">Copy</button>
+                </div>
+                <pre><code id="trouble-memory"># Limit concurrency
+ExJoi.validate(data, schema, max_concurrency: 5)
+
+# For large arrays, validate in batches
+# (You may need to implement batching logic in your async function)</code></pre>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <h3>Issue: Async Errors Not Appearing</h3>
+              <p class="text-slate-400 mb-4"><strong>Solution:</strong> Ensure your async function returns proper error tuples. Check that synchronous validation isn't failing first (async only runs if sync passes).</p>
+              <div class="code-card">
+                <div class="code-header">
+                  <span>Fix</span>
+                  <button class="copy-btn" data-clipboard-target="#trouble-errors">Copy</button>
+                </div>
+                <pre><code id="trouble-errors"># Ensure async function returns error tuple
+fn value, _ctx ->
+  Task.async(fn ->
+    case check(value) do
+      :ok -> {:ok, value}
+      :error -> {:error, [%{code: :validation_failed, message: "validation failed"}]}
+    end
+  end)
+end
+
+# Check synchronous validation first
+# Async only runs if sync validation passes
+username: ExJoi.async(
+  ExJoi.string(required: true, min: 3),  # Sync validation
+  fn value, _ctx -> async_check(value) end  # Only runs if sync passes
+)</code></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <div id="common-footer"></div>
+
+    <script src="common.js"></script>
+    <script src="scripts.js"></script>
+  </body>
+</html>
+

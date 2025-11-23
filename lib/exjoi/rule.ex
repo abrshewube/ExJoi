@@ -25,11 +25,13 @@ defmodule ExJoi.Rule do
     unique: false,
     delimiter: ",",
     conditional: nil,
-    custom_opts: []
+    custom_opts: [],
+    async: nil,
+    timeout: nil
   ]
 
   @type t :: %__MODULE__{
-          type: :string | :number | :boolean | :object | :array | :date | :conditional,
+          type: :string | :number | :boolean | :object | :array | :date | :conditional | {:custom, atom()},
           required: boolean(),
           min: integer() | float() | nil,
           max: integer() | float() | nil,
@@ -45,6 +47,8 @@ defmodule ExJoi.Rule do
           unique: boolean(),
           delimiter: String.t() | nil,
           conditional: map() | nil,
-          custom_opts: keyword()
+          custom_opts: keyword(),
+          async: (any(), map() -> {:ok, any()} | {:error, [map()]} | Task.t()) | nil,
+          timeout: non_neg_integer() | nil
         }
 end

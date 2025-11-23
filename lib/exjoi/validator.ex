@@ -19,6 +19,12 @@ defmodule ExJoi.Validator do
   Validates data against a schema.
 
   Returns `{:ok, validated_data}` if validation passes, or `{:error, errors}` if it fails.
+
+  ## Options
+
+    * `:convert` (boolean, default: `false`) - Enable type coercion
+    * `:timeout` (integer, default: `5000`) - Timeout in milliseconds for async validation
+    * `:max_concurrency` (integer, default: `10`) - Maximum concurrent async validations
   """
   def validate(data, schema, opts \\ [])
 
@@ -26,8 +32,23 @@ defmodule ExJoi.Validator do
     convert = Keyword.get(opts, :convert, false)
     data_with_defaults = apply_defaults(data, defaults)
 
+    # Check if any field has async validation
+    has_async = Enum.any?(fields, fn {_field_name, rule} -> not is_nil(rule.async) end)
+
+    if has_async do
+      validate_async(data_with_defaults, fields, convert, opts)
+    else
+      validate_sync(data_with_defaults, fields, convert)
+    end
+  end
+
+  def validate(data, _schema, _opts) when not is_map(data) do
+    {:error, format_errors(%{_schema: [error(:invalid_data, "data must be a map")]})}
+  end
+
+  defp validate_sync(data, fields, convert) do
     {errors, coerced_data} =
-      Enum.reduce(fields, {%{}, data_with_defaults}, fn {field_name, rule}, {error_acc, data_acc} ->
+      Enum.reduce(fields, {%{}, data}, fn {field_name, rule}, {error_acc, data_acc} ->
         case validate_field(data_acc, field_name, rule, convert) do
           {:ok, :missing} ->
             {error_acc, data_acc}
@@ -47,9 +68,51 @@ defmodule ExJoi.Validator do
     end
   end
 
-  def validate(_data, _schema, _opts) do
-    {:error, format_errors(%{_schema: [error(:invalid_data, "data must be a map")]})}
+  defp validate_async(data, fields, convert, opts) do
+    timeout = Keyword.get(opts, :timeout, 5000)
+
+    # Validate all fields in parallel using Task.async_stream
+    results =
+      fields
+      |> Task.async_stream(
+        fn {field_name, rule} ->
+          case validate_field_async(data, field_name, rule, convert, timeout) do
+            {:ok, :missing} -> {:ok, field_name, :missing}
+            {:ok, {key, value}} -> {:ok, field_name, {key, value}}
+            {:error, field_errors} -> {:error, field_name, field_errors}
+          end
+        end,
+        max_concurrency: Keyword.get(opts, :max_concurrency, 10),
+        timeout: timeout,
+        on_timeout: :kill_task
+      )
+      |> Enum.to_list()
+
+    {errors, coerced_data} =
+      Enum.reduce(results, {%{}, data}, fn
+        {:ok, {:ok, _field_name, :missing}}, {error_acc, data_acc} ->
+          {error_acc, data_acc}
+
+        {:ok, {:ok, _field_name, {key, value}}}, {error_acc, data_acc} ->
+          {error_acc, Map.put(data_acc, key, value)}
+
+        {:ok, {:error, field_name, field_errors}}, {error_acc, data_acc} ->
+          {Map.put(error_acc, field_name, field_errors), data_acc}
+
+        {:exit, {:timeout, _}}, {error_acc, data_acc} ->
+          {Map.put(error_acc, :_async_timeout, [error(:async_timeout, "async validation timed out")]), data_acc}
+
+        {:exit, reason}, {error_acc, data_acc} ->
+          {Map.put(error_acc, :_async_error, [error(:async_error, "async validation failed: #{inspect(reason)}")]), data_acc}
+      end)
+
+    if map_size(errors) == 0 do
+      {:ok, coerced_data}
+    else
+      {:error, format_errors(errors)}
+    end
   end
+
 
   defp validate_field(data, field_name, %Rule{type: :conditional} = rule, convert) do
     active_rule = resolve_conditional_rule(rule.conditional, data)
@@ -96,6 +159,147 @@ defmodule ExJoi.Validator do
         end
     end
   end
+
+  defp validate_field_async(data, field_name, %Rule{async: nil} = rule, convert, _timeout) do
+    validate_field(data, field_name, rule, convert)
+  end
+
+  defp validate_field_async(data, field_name, %Rule{async: async_fn, timeout: rule_timeout} = rule, convert, default_timeout) do
+    # Use rule timeout if specified, otherwise use default timeout
+    timeout = if rule_timeout, do: rule_timeout, else: default_timeout
+
+    case fetch_field_value(data, field_name) do
+      :missing when rule.required ->
+        {:error, [error(:required, "is required")]}
+
+      :missing ->
+        {:ok, :missing}
+
+      {:ok, key, value} ->
+        # First do synchronous validation
+        case validate_value_sync(value, rule, convert, data) do
+          {:error, errors} ->
+            {:error, errors}
+
+          {:ok, validated_value} ->
+            # Then run async validation
+            context = %{convert: convert, data: data, custom_opts: rule.custom_opts}
+
+            case async_fn.(validated_value, context) do
+              {:ok, final_value} ->
+                {:ok, {key, final_value}}
+
+              {:error, errors} when is_list(errors) ->
+                {:error, errors}
+
+              %Task{} = task ->
+                # Task returned, await it with timeout
+                try do
+                  case Task.await(task, timeout) do
+                    {:ok, final_value} ->
+                      {:ok, {key, final_value}}
+
+                    {:error, errors} when is_list(errors) ->
+                      {:error, errors}
+
+                    other ->
+                      {:error, [error(:async_validation, "async validation returned unexpected result: #{inspect(other)}")]}
+                  end
+                catch
+                  :exit, {:timeout, _} ->
+                    {:error, [error(:async_timeout, "async validation timed out after #{timeout}ms")]}
+
+                  :exit, reason ->
+                    {:error, [error(:async_error, "async validation failed: #{inspect(reason)}")]}
+                end
+
+              other ->
+                {:error, [error(:async_validation, "async function returned unexpected result: #{inspect(other)}")]}
+            end
+        end
+    end
+  end
+
+  # Synchronous validation without async
+  defp validate_value_sync(value, %Rule{type: :string} = rule, convert, _data) do
+    with {:ok, normalized} <- ensure_string(value, convert),
+         [] <- string_constraint_errors(normalized, rule) do
+      {:ok, normalized}
+    else
+      {:error, errors} -> {:error, errors}
+      errors when is_list(errors) -> {:error, errors}
+    end
+  end
+
+  defp validate_value_sync(value, %Rule{type: :number} = rule, convert, _data) do
+    with {:ok, number} <- ensure_number(value, convert),
+         [] <- number_constraint_errors(number, rule) do
+      {:ok, number}
+    else
+      {:error, errors} -> {:error, errors}
+      errors when is_list(errors) -> {:error, errors}
+    end
+  end
+
+  defp validate_value_sync(value, %Rule{type: :boolean} = rule, convert, _data) do
+    with {:ok, bool} <- coerce_boolean(value, rule, convert) do
+      {:ok, bool}
+    else
+      :error -> {:error, [error(:boolean, "must be a boolean")]}
+    end
+  end
+
+  defp validate_value_sync(value, %Rule{type: :object, schema: schema}, convert, _data) do
+    if not is_map(value) do
+      {:error, [error(:object, "must be an object/map")]}
+    else
+      case schema do
+        %Schema{} = nested_schema ->
+          case validate(value, nested_schema, convert: convert) do
+            {:ok, validated} -> {:ok, validated}
+            {:error, nested_errors} -> {:error, nested_errors}
+          end
+
+        _ ->
+          {:ok, value}
+      end
+    end
+  end
+
+  defp validate_value_sync(value, %Rule{type: :array, of: of_rule} = rule, convert, data) do
+    with {:ok, list} <- coerce_array(value, rule.delimiter),
+         [] <- array_constraint_errors(list, rule) do
+      # For async arrays, validate elements in parallel
+      if of_rule && not is_nil(of_rule.async) do
+        validate_array_elements_async(list, of_rule, convert, data, of_rule.timeout || 5000)
+      else
+        validate_array_elements(list, of_rule, convert, data)
+      end
+    else
+      {:error, errors} -> {:error, errors}
+      errors when is_list(errors) -> {:error, errors}
+    end
+  end
+
+  defp validate_value_sync(value, %Rule{type: :date}, convert, _data) do
+    case ensure_date(value, convert) do
+      {:ok, datetime} -> {:ok, datetime}
+      :error -> {:error, [error(:date, "must be a valid date")]}
+    end
+  end
+
+  defp validate_value_sync(value, %Rule{type: {:custom, type_name}, custom_opts: opts} = rule, convert, data) do
+    case Config.fetch_type(type_name) do
+      nil ->
+        {:error, [error(:custom_type, "unknown custom type #{type_name}")]}
+
+      validator ->
+        context = %{convert: convert, data: data, custom_opts: opts}
+        run_custom_validator(validator, value, rule, context)
+    end
+  end
+
+  defp validate_value_sync(value, %Rule{}, _convert, _data), do: {:ok, value}
 
   defp fetch_field_value(data, field_name) when is_atom(field_name) do
     case Map.fetch(data, field_name) do
@@ -163,11 +367,15 @@ defmodule ExJoi.Validator do
     end
   end
 
-  defp validate_value(value, %Rule{type: :array} = rule, convert, data) do
+  defp validate_value(value, %Rule{type: :array, of: of_rule} = rule, convert, data) do
     with {:ok, list} <- coerce_array(value, rule.delimiter),
-         [] <- array_constraint_errors(list, rule),
-         {:ok, coerced_list} <- validate_array_elements(list, rule.of, convert, data) do
-      {:ok, coerced_list}
+         [] <- array_constraint_errors(list, rule) do
+      # For async arrays, validate elements in parallel
+      if of_rule && not is_nil(of_rule.async) do
+        validate_array_elements_async(list, of_rule, convert, data, of_rule.timeout || 5000)
+      else
+        validate_array_elements(list, of_rule, convert, data)
+      end
     else
       {:error, errors} -> {:error, errors}
       errors when is_list(errors) -> {:error, errors}
@@ -358,6 +566,88 @@ defmodule ExJoi.Validator do
 
     if map_size(errors) == 0 do
       {:ok, Enum.reverse(values)}
+    else
+      {:error, errors}
+    end
+  end
+
+  defp validate_array_elements_async(list, %Rule{async: async_fn, timeout: timeout} = rule, convert, data, default_timeout) do
+    timeout_ms = timeout || default_timeout
+
+    # Create a rule without async for synchronous validation
+    sync_rule = %Rule{rule | async: nil}
+
+    results =
+      list
+      |> Enum.with_index()
+      |> Task.async_stream(
+        fn {item, idx} ->
+          # First do synchronous validation (type and constraints)
+          case validate_value_sync(item, sync_rule, convert, data) do
+            {:error, errors} ->
+              {:error, idx, errors}
+
+            {:ok, validated_item} ->
+              # Then run async validation
+              context = %{convert: convert, data: data, custom_opts: rule.custom_opts}
+
+              case async_fn.(validated_item, context) do
+                {:ok, final_value} ->
+                  {:ok, idx, final_value}
+
+                {:error, errors} when is_list(errors) ->
+                  {:error, idx, errors}
+
+                %Task{} = task ->
+                  try do
+                    case Task.await(task, timeout_ms) do
+                      {:ok, final_value} ->
+                        {:ok, idx, final_value}
+
+                      {:error, errors} when is_list(errors) ->
+                        {:error, idx, errors}
+
+                      other ->
+                        {:error, idx, [error(:async_validation, "async validation returned unexpected result: #{inspect(other)}")]}
+                    end
+                  catch
+                    :exit, {:timeout, _} ->
+                      {:error, idx, [error(:async_timeout, "async validation timed out after #{timeout_ms}ms")]}
+
+                    :exit, reason ->
+                      {:error, idx, [error(:async_error, "async validation failed: #{inspect(reason)}")]}
+                  end
+
+                other ->
+                  {:error, idx, [error(:async_validation, "async function returned unexpected result: #{inspect(other)}")]}
+              end
+          end
+        end,
+        max_concurrency: 10,
+        timeout: timeout_ms,
+        on_timeout: :kill_task
+      )
+      |> Enum.to_list()
+
+    {errors, indexed_values} =
+      Enum.reduce(results, {%{}, %{}}, fn
+        {:ok, {:ok, idx, value}}, {err_acc, val_acc} ->
+          {err_acc, Map.put(val_acc, idx, value)}
+
+        {:ok, {:error, idx, element_errors}}, {err_acc, val_acc} ->
+          {Map.put(err_acc, idx, element_errors), val_acc}
+
+        {:exit, {:timeout, _}}, {err_acc, val_acc} ->
+          {Map.put(err_acc, :_timeout, [error(:async_timeout, "async array validation timed out")]), val_acc}
+
+        {:exit, reason}, {err_acc, val_acc} ->
+          {Map.put(err_acc, :_error, [error(:async_error, "async array validation failed: #{inspect(reason)}")]), val_acc}
+      end)
+
+    if map_size(errors) == 0 do
+      # Reconstruct list in original order
+      values = Enum.map(0..(length(list) - 1), &Map.get(indexed_values, &1))
+      {:ok, values}
     else
       {:error, errors}
     end

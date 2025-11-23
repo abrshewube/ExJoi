@@ -264,6 +264,54 @@ defmodule ExJoi do
   end
 
   @doc """
+  Wraps a rule with async validation support.
+
+  The async function receives `(value, context)` where:
+    - `value` is the value being validated
+    - `context` is a map with `:convert`, `:data`, and `:custom_opts`
+
+  The function can return:
+    - `{:ok, validated_value}` - Success
+    - `{:error, [error_map, ...]}` - Validation errors
+    - A `Task.t()` for long-running validations
+
+  ## Options
+
+    * `:timeout` - Maximum time in milliseconds to wait for async validation (default: `5000`)
+
+  ## Examples
+
+      # Simple async validator
+      username: ExJoi.async(
+        ExJoi.string(required: true, min: 3),
+        fn value, _ctx ->
+          Task.async(fn ->
+            # Check username availability
+            if UsernameService.available?(value) do
+              {:ok, value}
+            else
+              {:error, [%{code: :username_taken, message: "username is already taken"}]}
+            end
+          end)
+        end
+      )
+
+      # With timeout
+      email: ExJoi.async(
+        ExJoi.string(email: true),
+        fn value, _ctx -> EmailService.verify_async(value) end,
+        timeout: 3000
+      )
+  """
+  def async(%Rule{} = rule, async_fn, opts \\ []) when is_function(async_fn, 2) do
+    %Rule{
+      rule
+      | async: async_fn,
+        timeout: Keyword.get(opts, :timeout, 5000)
+    }
+  end
+
+  @doc """
   Validates data against a schema.
 
   Returns `{:ok, validated_data}` if validation passes, or `{:error, errors}` if it fails.
