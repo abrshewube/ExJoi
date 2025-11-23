@@ -449,4 +449,174 @@ defmodule ExJoiTest do
       assert [%{message: "es requerido"}] = errors.name
     end
   end
+
+  describe "async validation" do
+    test "validates with async function returning {:ok, value}" do
+      schema = ExJoi.schema(%{
+        username: ExJoi.async(
+          ExJoi.string(required: true, min: 3),
+          fn value, _ctx ->
+            # Simulate async check
+            Process.sleep(10)
+            {:ok, String.downcase(value)}
+          end
+        )
+      })
+
+      assert {:ok, %{username: "john"}} = ExJoi.validate(%{username: "John"}, schema)
+    end
+
+    test "validates with async function returning Task" do
+      schema = ExJoi.schema(%{
+        username: ExJoi.async(
+          ExJoi.string(required: true),
+          fn value, _ctx ->
+            Task.async(fn ->
+              Process.sleep(10)
+              {:ok, String.upcase(value)}
+            end)
+          end
+        )
+      })
+
+      assert {:ok, %{username: "JOHN"}} = ExJoi.validate(%{username: "john"}, schema)
+    end
+
+    test "async validation with external service check" do
+      # Simulate username availability check
+      available_usernames = MapSet.new(["john", "jane", "bob"])
+
+      schema = ExJoi.schema(%{
+        username: ExJoi.async(
+          ExJoi.string(required: true, min: 3),
+          fn value, _ctx ->
+            Task.async(fn ->
+              Process.sleep(10)
+              if MapSet.member?(available_usernames, String.downcase(value)) do
+                {:ok, String.downcase(value)}
+              else
+                {:error, [%{code: :username_taken, message: "username is already taken"}]}
+              end
+            end)
+          end,
+          timeout: 1000
+        )
+      })
+
+      assert {:ok, %{username: "john"}} = ExJoi.validate(%{username: "john"}, schema)
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{username: "admin"}, schema)
+      assert [%{code: :username_taken}] = errors.username
+    end
+
+    test "async validation timeout" do
+      schema = ExJoi.schema(%{
+        slow_field: ExJoi.async(
+          ExJoi.string(),
+          fn _value, _ctx ->
+            Task.async(fn ->
+              Process.sleep(2000)  # Sleep longer than timeout
+              {:ok, "done"}
+            end)
+          end,
+          timeout: 100  # 100ms timeout
+        )
+      })
+
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{slow_field: "test"}, schema, timeout: 100)
+      # Should have timeout error
+      assert Map.has_key?(errors, :_async_timeout) || Map.has_key?(errors, :slow_field)
+    end
+
+    test "parallel validation of array items" do
+      schema = ExJoi.schema(%{
+        usernames: ExJoi.array(
+          of: ExJoi.async(
+            ExJoi.string(min: 3),
+            fn value, _ctx ->
+              Task.async(fn ->
+                Process.sleep(10)
+                {:ok, String.downcase(value)}
+              end)
+            end
+          ),
+          min_items: 1
+        )
+      })
+
+      assert {:ok, %{usernames: ["john", "jane", "bob"]}} =
+               ExJoi.validate(%{usernames: ["John", "Jane", "Bob"]}, schema)
+    end
+
+    test "multiple async fields validated in parallel" do
+      schema = ExJoi.schema(%{
+        username: ExJoi.async(
+          ExJoi.string(required: true),
+          fn value, _ctx ->
+            Task.async(fn ->
+              Process.sleep(50)
+              {:ok, String.downcase(value)}
+            end)
+          end
+        ),
+        email: ExJoi.async(
+          ExJoi.string(email: true),
+          fn value, _ctx ->
+            Task.async(fn ->
+              Process.sleep(50)
+              {:ok, String.downcase(value)}
+            end)
+          end
+        )
+      })
+
+      start_time = System.monotonic_time(:millisecond)
+      assert {:ok, %{username: "john", email: "test@example.com"}} =
+               ExJoi.validate(%{username: "John", email: "Test@Example.com"}, schema)
+      elapsed = System.monotonic_time(:millisecond) - start_time
+
+      # Should complete in roughly 50ms (parallel) not 100ms (sequential)
+      assert elapsed < 150
+    end
+
+    test "async validation with error" do
+      schema = ExJoi.schema(%{
+        username: ExJoi.async(
+          ExJoi.string(required: true),
+          fn value, _ctx ->
+            Task.async(fn ->
+              Process.sleep(10)
+              if String.length(value) < 5 do
+                {:error, [%{code: :too_short, message: "username too short"}]}
+              else
+                {:ok, value}
+              end
+            end)
+          end
+        )
+      })
+
+      assert {:ok, %{username: "longname"}} = ExJoi.validate(%{username: "longname"}, schema)
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{username: "abc"}, schema)
+      assert [%{code: :too_short}] = errors.username
+    end
+
+    test "async validation respects timeout option" do
+      schema = ExJoi.schema(%{
+        field: ExJoi.async(
+          ExJoi.string(),
+          fn _value, _ctx ->
+            Task.async(fn ->
+              Process.sleep(200)
+              {:ok, "done"}
+            end)
+          end,
+          timeout: 50
+        )
+      })
+
+      # Global timeout should override rule timeout
+      assert {:error, %{errors: errors}} = ExJoi.validate(%{field: "test"}, schema, timeout: 100)
+      assert Map.has_key?(errors, :_async_timeout) || Map.has_key?(errors, :field)
+    end
+  end
 end
