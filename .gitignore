@@ -28,7 +28,7 @@ exjoi-*.tar
 # Ignore files from the Elixir Language Server.
 .elixir_ls/
 
+.gitignore
 branch_structure.json
 temp_auto_push.bat
 temp_interactive_push.bat
-.gitignore
